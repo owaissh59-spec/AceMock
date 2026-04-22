@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTestStore } from '../store/useTestStore';
-import { Clock, Pause, Play, Bookmark, ChevronLeft, ChevronRight, Send } from 'lucide-react';
+import { Clock, Pause, Play, Bookmark, ChevronLeft, ChevronRight, Send, Menu, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -13,6 +13,7 @@ const ActiveTest = () => {
   const { currentSession, tickTimer, pauseTest, resumeTest, answerQuestion, toggleMarkForReview, submitTest } = useTestStore();
   
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showPalette, setShowPalette] = useState(false);
 
   // Timer effect
   useEffect(() => {
@@ -84,40 +85,48 @@ const ActiveTest = () => {
       <div className={cn("flex-1 flex flex-col transition-all duration-300", currentSession.isPaused && "blur-md pointer-events-none")}>
         
         {/* Header */}
-        <header className="bg-white border-b border-slate-200 h-20 px-8 flex items-center justify-between flex-shrink-0">
-          <h1 className="text-xl font-bold text-slate-800">Mock Test</h1>
+        <header className="bg-white border-b border-slate-200 h-16 md:h-20 px-4 md:px-8 flex items-center justify-between flex-shrink-0 relative z-10">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowPalette(true)} 
+              className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h1 className="text-lg md:text-xl font-bold text-slate-800 hidden sm:block">Mock Test</h1>
+          </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 md:gap-6">
             <div className={cn(
-              "flex items-center gap-2 font-mono text-2xl font-bold px-4 py-2 rounded-lg border",
+              "flex items-center gap-1.5 md:gap-2 font-mono text-lg md:text-2xl font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-lg border",
               currentSession.timeRemaining < 300 ? "text-red-600 border-red-200 bg-red-50" : "text-slate-700 border-slate-200 bg-slate-50"
             )}>
-              <Clock className="w-6 h-6" />
+              <Clock className="w-5 h-5 md:w-6 md:h-6" />
               {formatTime(currentSession.timeRemaining)}
             </div>
             
             <button 
               onClick={pauseTest}
-              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors text-sm md:text-base"
             >
-              <Pause className="w-5 h-5 fill-current" /> Pause
+              <Pause className="w-4 h-4 md:w-5 md:h-5 fill-current" /> <span className="hidden md:inline">Pause</span>
             </button>
             
             <button 
               onClick={handleSubmit}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm"
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 md:px-6 md:py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
             >
-              <Send className="w-4 h-4" /> Submit Test
+              <Send className="w-4 h-4" /> <span className="hidden md:inline">Submit Test</span>
             </button>
           </div>
         </header>
 
         {/* Question Area */}
-        <div className="flex-1 overflow-y-auto p-8 flex justify-center">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center">
           <div className="max-w-3xl w-full">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
               
-              <div className="p-8 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+              <div className="p-4 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">
                   Question {currentIndex + 1} of {currentSession.questions.length}
                 </span>
@@ -135,8 +144,8 @@ const ActiveTest = () => {
                 </button>
               </div>
 
-              <div className="p-8">
-                <div className="prose prose-slate prose-p:leading-relaxed prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 prose-td:border-slate-200 max-w-none mb-8">
+              <div className="p-4 md:p-8">
+                <div className="prose prose-sm md:prose-slate prose-p:leading-relaxed prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 prose-td:border-slate-200 max-w-none mb-8 overflow-x-auto">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                     {highlightKeywords(currentQuestion.questionText)}
                   </ReactMarkdown>
@@ -169,9 +178,9 @@ const ActiveTest = () => {
                             }
                           }}
                           onChange={() => {}}
-                          className="w-5 h-5 text-primary border-slate-300 focus:ring-primary mr-4 cursor-pointer"
+                          className="w-5 h-5 text-primary border-slate-300 focus:ring-primary mr-3 md:mr-4 flex-shrink-0 cursor-pointer"
                         />
-                        <span className="text-base font-medium">{option}</span>
+                        <span className="text-sm md:text-base font-medium">{option}</span>
                       </label>
                     );
                   })}
@@ -200,11 +209,34 @@ const ActiveTest = () => {
         </div>
       </div>
 
+        </div>
+      </div>
+
+      {/* Mobile Palette Overlay */}
+      {showPalette && (
+        <div 
+          className="fixed inset-0 bg-slate-900/40 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setShowPalette(false)}
+        />
+      )}
+
       {/* Navigation Palette (Sidebar) */}
-      <div className={cn("w-80 bg-white border-l border-slate-200 flex flex-col transition-all", currentSession.isPaused && "blur-md pointer-events-none")}>
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-bold text-slate-800">Navigation Palette</h3>
-          <p className="text-sm text-slate-500 mt-1">Jump to any question.</p>
+      <div className={cn(
+        "fixed lg:static top-0 right-0 h-full w-80 bg-white border-l border-slate-200 flex flex-col transition-transform duration-300 z-50",
+        showPalette ? "translate-x-0 shadow-2xl" : "translate-x-full lg:translate-x-0",
+        currentSession.isPaused && "blur-md pointer-events-none"
+      )}>
+        <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          <div>
+            <h3 className="font-bold text-slate-800">Navigation Palette</h3>
+            <p className="text-sm text-slate-500 mt-1">Jump to any question.</p>
+          </div>
+          <button 
+            onClick={() => setShowPalette(false)}
+            className="lg:hidden p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
         
         <div className="p-6 flex-1 overflow-y-auto">
