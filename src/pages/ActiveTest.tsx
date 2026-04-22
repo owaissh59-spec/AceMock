@@ -208,10 +208,6 @@ const ActiveTest = () => {
           </div>
         </div>
       </div>
-
-        </div>
-      </div>
-
       {/* Mobile Palette Overlay */}
       {showPalette && (
         <div 
