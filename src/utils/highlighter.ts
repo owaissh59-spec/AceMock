@@ -1,6 +1,11 @@
 export const formatColumns = (text: string) => {
   if (!text) return text;
   
+  // If the text already contains a Markdown table syntax, do not attempt to split it manually
+  if (text.match(/\|\s*[-:]+\s*\|/)) {
+    return text;
+  }
+  
   const regex = /(.*?)(?:Column I|List I|List-I|Column-I)[:\s]+(.*?)(?:Column II|List II|List-II|Column-II)[:\s]+(.*)/is;
   
   const match = text.match(regex);
