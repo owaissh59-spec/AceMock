@@ -51,21 +51,21 @@ const Analysis = () => {
     }
 
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 md:space-y-6 p-2 md:p-6">
         {list.map((q, idx) => (
-          <div key={q.id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="w-8 h-8 flex-shrink-0 bg-slate-100 rounded-full flex items-center justify-center font-bold text-sm text-slate-600">
+          <div key={q.id} className="bg-white border border-slate-200 rounded-xl p-3 md:p-6 shadow-sm">
+            <div className="flex items-start gap-3 md:gap-4 mb-4">
+              <div className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0 bg-slate-100 rounded-full flex items-center justify-center font-bold text-sm text-slate-600">
                 {idx + 1}
               </div>
-              <div className="prose prose-slate prose-p:leading-relaxed prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 prose-td:border-slate-200 max-w-none mt-1">
+              <div className="prose prose-sm md:prose-slate prose-p:leading-relaxed prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 prose-td:border-slate-200 max-w-none mt-0.5 md:mt-1 overflow-x-auto">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                   {highlightKeywords(q.questionText)}
                 </ReactMarkdown>
               </div>
             </div>
 
-            <div className="ml-12 space-y-2 mb-6">
+            <div className="ml-0 md:ml-12 space-y-2 mb-6">
               {q.options.map((opt, i) => {
                 const isCorrect = opt === q.correctAnswer;
                 const isSelected = answers[q.id] === opt;
@@ -85,7 +85,7 @@ const Analysis = () => {
             </div>
 
             {q.explanation && (
-              <div className="ml-12 bg-blue-50/50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm text-blue-900">
+              <div className="ml-0 md:ml-12 bg-blue-50/50 border border-blue-100 rounded-lg p-3 md:p-4 flex flex-col md:flex-row gap-2 md:gap-3 text-sm text-blue-900">
                 <Lightbulb className="w-5 h-5 text-blue-500 flex-shrink-0" />
                 <div>
                   <span className="font-semibold block mb-1">Explanation:</span>
@@ -104,7 +104,7 @@ const Analysis = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 min-h-screen">
+    <div className="max-w-5xl mx-auto p-3 md:p-6 min-h-screen">
       <button 
         onClick={() => {
           useTestStore.setState({ currentSession: null }); // Clear session to go back to clean state
@@ -164,19 +164,19 @@ const Analysis = () => {
         <div className="flex border-b border-slate-200">
           <button 
             onClick={() => setActiveTab('right')}
-            className={cn("flex-1 py-4 text-sm font-semibold transition-colors border-b-2", activeTab === 'right' ? "border-green-500 text-green-600 bg-green-50/30" : "border-transparent text-slate-500 hover:bg-slate-50")}
+            className={cn("flex-1 py-3 md:py-4 text-xs md:text-sm font-semibold transition-colors border-b-2", activeTab === 'right' ? "border-green-500 text-green-600 bg-green-50/30" : "border-transparent text-slate-500 hover:bg-slate-50")}
           >
-            Right Attempted ({rightQuestions.length})
+            Right ({rightQuestions.length})
           </button>
           <button 
             onClick={() => setActiveTab('wrong')}
-            className={cn("flex-1 py-4 text-sm font-semibold transition-colors border-b-2", activeTab === 'wrong' ? "border-red-500 text-red-600 bg-red-50/30" : "border-transparent text-slate-500 hover:bg-slate-50")}
+            className={cn("flex-1 py-3 md:py-4 text-xs md:text-sm font-semibold transition-colors border-b-2", activeTab === 'wrong' ? "border-red-500 text-red-600 bg-red-50/30" : "border-transparent text-slate-500 hover:bg-slate-50")}
           >
-            Wrong Attempted ({wrongQuestions.length})
+            Wrong ({wrongQuestions.length})
           </button>
           <button 
             onClick={() => setActiveTab('unattempted')}
-            className={cn("flex-1 py-4 text-sm font-semibold transition-colors border-b-2", activeTab === 'unattempted' ? "border-slate-800 text-slate-800 bg-slate-50" : "border-transparent text-slate-500 hover:bg-slate-50")}
+            className={cn("flex-1 py-3 md:py-4 text-xs md:text-sm font-semibold transition-colors border-b-2", activeTab === 'unattempted' ? "border-slate-800 text-slate-800 bg-slate-50" : "border-transparent text-slate-500 hover:bg-slate-50")}
           >
             Unattempted ({unattemptedQuestions.length})
           </button>
