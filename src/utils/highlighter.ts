@@ -13,11 +13,23 @@ export const formatColumns = (text: string) => {
     const preamble = match[1].trim();
     
     const formatList = (listStr: string) => {
-      // Find list items like " P. ", " 1. ", " A) ", or ", a. ", " a. "
-      // Restrict letters to common list markers to avoid false positives (a-e, A-E, P-S, roman numerals, digits)
-      return listStr
-        .replace(/(?:^|[,;\s])\s*([a-eA-EP-S]|\d+|[ivxIVX]{1,4})[.)]\s/g, '\n\n<strong>$1.</strong> ')
-        .trim();
+      const parts = listStr.split(/(?:^|[,;\s])\s*([a-eA-EP-S]|\d+|[ivxIVX]{1,4})[.)]\s/g);
+      
+      if (parts.length <= 1) {
+        return listStr.trim();
+      }
+
+      let html = '<div class="flex flex-col gap-2.5">';
+      if (parts[0] && parts[0].trim()) {
+        html += `<div>${parts[0].trim()}</div>`;
+      }
+      for (let i = 1; i < parts.length; i += 2) {
+        if (parts[i]) {
+          html += `<div><strong>${parts[i]}.</strong> ${parts[i + 1] ? parts[i + 1].trim() : ''}</div>`;
+        }
+      }
+      html += '</div>';
+      return html;
     };
 
     let col1 = formatList(match[2]);
@@ -29,11 +41,11 @@ export const formatColumns = (text: string) => {
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-6 bg-slate-50/80 p-5 rounded-xl border border-slate-200 shadow-sm text-sm">
   <div class="prose-sm">
     <h4 class="font-bold text-slate-800 mb-3 border-b border-slate-200 pb-2">Column I</h4>
-    <div class="whitespace-pre-line text-slate-700 leading-relaxed">${col1}</div>
+    <div class="whitespace-pre-line text-slate-700 leading-normal">${col1}</div>
   </div>
   <div class="prose-sm md:border-l md:border-slate-200 md:pl-4">
     <h4 class="font-bold text-slate-800 mb-3 border-b border-slate-200 pb-2">Column II</h4>
-    <div class="whitespace-pre-line text-slate-700 leading-relaxed">${col2}</div>
+    <div class="whitespace-pre-line text-slate-700 leading-normal">${col2}</div>
   </div>
 </div>`;
   }
@@ -41,10 +53,24 @@ export const formatColumns = (text: string) => {
   return text;
 };
 
-export const formatRomanNumerals = (text: string) => {
+export const formatListItems = (text: string) => {
   if (!text) return text;
-  // Matches " I. ", " II. ", " i. ", " ii. ", etc. and puts them on new lines
-  return text.replace(/\s+(I{1,3}|IV|V|VI{1,3}|IX|X)\.\s/gi, '\n\n**$1.** ');
+  
+  let formatted = text;
+  
+  // Format for Roman numerals with dot: " I. ", " ii. "
+  formatted = formatted.replace(/\s+(I{1,3}|IV|V|VI{1,3}|IX|X)\.\s/gi, '\n\n**$1.** ');
+  
+  // Format for Roman numerals in parentheses: " (i) ", " (IV) "
+  formatted = formatted.replace(/\s+\((I{1,3}|IV|V|VI{1,3}|IX|X)\)\s/gi, '\n\n**($1)** ');
+
+  // Format for letters in parentheses: " (a) ", " (A) "
+  formatted = formatted.replace(/\s+\(([A-Ha-h])\)\s/gi, '\n\n**($1)** ');
+
+  // Format for numbers in parentheses: " (1) ", " (12) "
+  formatted = formatted.replace(/\s+\((\d{1,2})\)\s/gi, '\n\n**($1)** ');
+
+  return formatted;
 };
 
 export const formatAssertionReason = (text: string) => {
@@ -73,7 +99,7 @@ export const highlightKeywords = (rawText: string) => {
   if (!rawText) return rawText;
   
   let text = formatColumns(rawText);
-  text = formatRomanNumerals(text);
+  text = formatListItems(text);
   text = formatAssertionReason(text);
   text = formatConcludingQuestions(text);
 
