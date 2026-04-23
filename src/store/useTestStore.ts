@@ -15,6 +15,9 @@ interface TestStore {
   // History
   history: TestResult[];
 
+  // Preferences
+  theme: 'light' | 'dark';
+
   // Actions
   setSetupData: (questions: Question[], minutes: number, testName?: string, scoringRules?: ScoringRules) => void;
   startTest: () => void;
@@ -25,8 +28,10 @@ interface TestStore {
   toggleMarkForReview: (questionId: string) => void;
   submitTest: () => void;
   clearHistory: () => void;
+  deleteTest: (id: string) => void;
   reattemptTest: (result: TestResult) => void;
   renameTest: (id: string, newName: string) => void;
+  toggleTheme: () => void;
 }
 
 export const useTestStore = create<TestStore>()(
@@ -38,6 +43,7 @@ export const useTestStore = create<TestStore>()(
       scoringRules: { correct: 1, incorrect: 0.25, unattempted: 0 },
       currentSession: null,
       history: [],
+      theme: 'light',
 
       setSetupData: (questions, minutes, testName, scoringRules) => set({ 
         testData: questions, 
@@ -159,6 +165,10 @@ export const useTestStore = create<TestStore>()(
 
       clearHistory: () => set({ history: [] }),
       
+      deleteTest: (id) => set((state) => ({
+        history: state.history.filter(test => test.id !== id)
+      })),
+      
       reattemptTest: (result) => set({
         currentSession: {
           testName: result.testName || 'Untitled Test',
@@ -177,11 +187,15 @@ export const useTestStore = create<TestStore>()(
         history: state.history.map(test => 
           test.id === id ? { ...test, testName: newName } : test
         )
+      })),
+
+      toggleTheme: () => set((state) => ({
+        theme: state.theme === 'light' ? 'dark' : 'light'
       }))
     }),
     {
       name: 'mock-test-storage',
-      partialize: (state) => ({ history: state.history }), // Only persist history
+      partialize: (state) => ({ history: state.history, theme: state.theme }), // Persist history and theme
     }
   )
 );
