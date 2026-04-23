@@ -54,7 +54,7 @@ const Analysis = () => {
               <div className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center font-bold text-sm text-slate-600 dark:text-slate-300">
                 {idx + 1}
               </div>
-              <div className="prose prose-sm md:prose-slate dark:prose-invert prose-p:leading-relaxed prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mt-0.5 md:mt-1 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+              <div className="prose prose-sm md:prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mt-0.5 md:mt-1 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                   {highlightKeywords(q.questionText)}
                 </ReactMarkdown>
