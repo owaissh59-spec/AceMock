@@ -1,0 +1,11 @@
+{
+  "topic": "Biology - Heart Anatomy",
+  "total_questions": 1,
+  "questions": [
+    {
+      "questionText": "Match the following heart valves with their correct anatomical locations:\n\nColumn I:\n(a) Tricuspid valve\n(b) Bicuspid (Mitral) valve\n(c) Pulmonary valve\n(d) Aortic valve\n\nColumn II:\n(i) Between left ventricle and aorta\n(ii) Between right atrium and right ventricle\n(iii) Between right ventricle and pulmonary artery\n(iv) Between left atrium and left ventricle\n\nChoose the correct option below:",
+      "options": ["(a)-(ii), (b)-(iv), (c)-(iii), (d)-(i)", "(a)-(iv), (b)-(ii), (c)-(iii), (d)-(i)", "(a)-(ii), (b)-(iv), (c)-(i), (d)-(iii)", "(a)-(iv), (b)-(ii), (c)-(i), (d)-(iii)"],
+      "correctAnswer": "(a)-(ii), (b)-(iv), (c)-(iii), (d)-(i)"
+    }
+  ]
+}
