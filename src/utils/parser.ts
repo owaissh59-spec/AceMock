@@ -1,6 +1,16 @@
 import Papa from 'papaparse';
 import { Question } from '../types';
 
+// Helper to randomly shuffle an array
+const shuffleArray = <T>(array: T[]): T[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
 // Helper to resolve answer like "A", "B", "C", "D" or "A)" to the actual option text
 const resolveCorrectAnswer = (options: string[], ans: string): string => {
   const trimmed = String(ans).trim();
@@ -16,7 +26,19 @@ const resolveCorrectAnswer = (options: string[], ans: string): string => {
 
 export const parseJSON = (text: string): Question[] => {
   try {
-    const data = JSON.parse(text);
+    let data = JSON.parse(text);
+    
+    // If the root is an object (not an array), look for a questions array inside it
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      if (Array.isArray(data.questions)) {
+        data = data.questions;
+      } else if (Array.isArray(data.data)) {
+        data = data.data;
+      } else {
+        throw new Error('JSON must be an array of questions or an object containing a "questions" array.');
+      }
+    }
+
     if (!Array.isArray(data)) throw new Error('JSON must be an array of questions.');
     
     return data.map((item: any, index: number) => {
@@ -36,11 +58,14 @@ export const parseJSON = (text: string): Question[] => {
         throw new Error(`Invalid schema at index ${index}. Must have question/questionText, options (array or object of 4), and correctAnswer/correct_answer.`);
       }
       
+      const resolvedAnswer = resolveCorrectAnswer(optionsArray, String(cAnswer));
+      const shuffledOptions = shuffleArray(optionsArray);
+
       return {
         id: String(item.id),
         questionText: String(qText),
-        options: optionsArray,
-        correctAnswer: resolveCorrectAnswer(optionsArray, String(cAnswer)),
+        options: shuffledOptions,
+        correctAnswer: resolvedAnswer,
         explanation: item.explanation ? String(item.explanation) : undefined
       };
     });
@@ -77,11 +102,13 @@ export const parseCSV = (text: string): Promise<Question[]> => {
             }
             
             const stringOptions = options.map(String);
+            const resolvedAnswer = resolveCorrectAnswer(stringOptions, row.correctAnswer);
+            const shuffledOptions = shuffleArray(stringOptions);
             return {
               id: String(row.id || index + 1),
               questionText: String(row.questionText),
-              options: stringOptions,
-              correctAnswer: resolveCorrectAnswer(stringOptions, row.correctAnswer),
+              options: shuffledOptions,
+              correctAnswer: resolvedAnswer,
               explanation: row.explanation ? String(row.explanation) : undefined
             };
           });
@@ -129,11 +156,14 @@ export const parsePlainText = (text: string): Question[] => {
       throw new Error(`Invalid format in block ${index + 1}. Ensure Question, 4 Options (A), B), C), D)), and Ans: are present.`);
     }
 
+    const resolvedAnswer = resolveCorrectAnswer(options, correctAnswer);
+    const shuffledOptions = shuffleArray(options);
+
     return {
       id: String(index + 1),
       questionText,
-      options,
-      correctAnswer: resolveCorrectAnswer(options, correctAnswer),
+      options: shuffledOptions,
+      correctAnswer: resolvedAnswer,
       explanation: explanation || undefined
     };
   });
@@ -161,10 +191,12 @@ export const parseMarkdown = (text: string): Question[] => {
         }
       }
 
+      const shuffledOptions = shuffleArray(options);
+
       questions.push({
         id: String(idCounter++),
         questionText: currentQuestion.questionText.trim(),
-        options: [...options],
+        options: shuffledOptions,
         correctAnswer,
         explanation: currentQuestion.explanation?.trim() || undefined
       });
