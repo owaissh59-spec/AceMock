@@ -25,6 +25,7 @@ const SetupTest = () => {
   const [incorrectScore, setIncorrectScore] = useState(0.25);
   const [unattemptedScore, setUnattemptedScore] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [parsedQuestions, setParsedQuestions] = useState<Question[] | null>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -35,6 +36,7 @@ const SetupTest = () => {
       const content = e.target?.result;
       if (typeof content === 'string') {
         setInputData(content);
+        setParsedQuestions(null);
       }
     };
     reader.readAsText(file);
@@ -45,7 +47,7 @@ const SetupTest = () => {
     }
   };
 
-  const handleStart = async () => {
+  const handleLoadQuestions = async () => {
     setError(null);
     if (!inputData.trim()) {
       setError('Please provide test data.');
@@ -68,12 +70,38 @@ const SetupTest = () => {
         throw new Error('No valid questions found.');
       }
 
-      setSetupData(parsedData, Number(timerMinutes) || 30, testName, { correct: correctScore, incorrect: incorrectScore, unattempted: unattemptedScore });
-      startTest();
-      navigate('/test');
+      setParsedQuestions(parsedData);
+      setTimerMinutes(parsedData.length);
+      
+      if (format === 'json') {
+        try {
+          const raw = JSON.parse(inputData);
+          const topic = raw.topic || raw.Topic || raw.subject || raw.Subject || raw[0]?.topic || raw[0]?.subject || raw[0]?.Topic || raw[0]?.Subject || 'Mock Test';
+          setTestName(topic);
+
+          const totalQ = raw.total_questions || raw.totalQuestions || raw.time || raw.timer || raw[0]?.total_questions || raw[0]?.totalQuestions;
+          if (totalQ) {
+            const parsedMinutes = parseInt(totalQ, 10);
+            if (!isNaN(parsedMinutes)) {
+              setTimerMinutes(parsedMinutes);
+            }
+          }
+        } catch {
+          setTestName('Mock Test');
+        }
+      } else {
+        setTestName('Mock Test');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to parse data. Please check the format.');
     }
+  };
+
+  const handleStart = async () => {
+    if (!parsedQuestions) return;
+    setSetupData(parsedQuestions, Number(timerMinutes) || 30, testName, { correct: correctScore, incorrect: incorrectScore, unattempted: unattemptedScore });
+    startTest();
+    navigate('/test');
   };
 
   const getPlaceholder = () => {
@@ -122,7 +150,10 @@ const SetupTest = () => {
               ].map((f) => (
                 <button
                   key={f.id}
-                  onClick={() => setFormat(f.id as Format)}
+                  onClick={() => {
+                    setFormat(f.id as Format);
+                    setParsedQuestions(null);
+                  }}
                   className={cn(
                     "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all",
                     format === f.id 
@@ -165,7 +196,10 @@ const SetupTest = () => {
               className="w-full h-64 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-mono text-sm resize-y transition-all text-slate-900 dark:text-slate-300"
               placeholder={getPlaceholder()}
               value={inputData}
-              onChange={(e) => setInputData(e.target.value)}
+              onChange={(e) => {
+                setInputData(e.target.value);
+                setParsedQuestions(null);
+              }}
             />
             {error && (
               <div className="mt-3 flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30 text-sm">
@@ -175,14 +209,32 @@ const SetupTest = () => {
             )}
           </section>
 
+          {/* Load Questions Button (if not loaded) */}
+          {!parsedQuestions && (
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleLoadQuestions}
+                className="bg-primary hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold shadow-sm transition-all"
+              >
+                Load Questions
+              </button>
+            </div>
+          )}
+
           {/* Settings */}
-          <section>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-200 uppercase tracking-wider mb-4">
-              Test Settings
-            </h2>
+          {parsedQuestions && (
+          <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-200 uppercase tracking-wider">
+                Test Settings
+              </h2>
+              <span className="text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full border border-green-200 dark:border-green-800">
+                {parsedQuestions.length} Questions Loaded
+              </span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Test Name (Optional)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Test Topic/Name (Optional)</label>
                 <input 
                   type="text" 
                   placeholder="e.g. Weekly Math Quiz"
@@ -268,16 +320,17 @@ const SetupTest = () => {
                 </div>
               </div>
             </div>
+            
+            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700/50 flex justify-end">
+              <button
+                onClick={handleStart}
+                className="bg-primary hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold shadow-sm transition-all flex items-center gap-2"
+              >
+                Start Test Now
+              </button>
+            </div>
           </section>
-        </div>
-
-        <div className="p-6 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-700/50 flex justify-end">
-          <button
-            onClick={handleStart}
-            className="bg-primary hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold shadow-sm transition-all"
-          >
-            Start Test Now
-          </button>
+          )}
         </div>
       </div>
     </div>
