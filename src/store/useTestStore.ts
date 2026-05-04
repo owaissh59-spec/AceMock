@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Question, TestSession, TestResult, ScoringRules } from '../types';
 
+const shuffleArray = <T>(array: T[]): T[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
 interface TestStore {
   // Test Setup Data
   testData: Question[];
@@ -58,7 +67,7 @@ export const useTestStore = create<TestStore>()(
           currentSession: {
             testName,
             scoringRules,
-            questions: testData,
+            questions: shuffleArray(testData),
             answers: {},
             markedForReview: {},
             timeRemaining: timerMinutes * 60,
@@ -173,7 +182,7 @@ export const useTestStore = create<TestStore>()(
         currentSession: {
           testName: result.testName || 'Untitled Test',
           scoringRules: result.session.scoringRules || { correct: 1, incorrect: 0.25, unattempted: 0 },
-          questions: result.session.questions,
+          questions: shuffleArray(result.session.questions),
           answers: {},
           markedForReview: {},
           timeRemaining: result.session.totalTime,

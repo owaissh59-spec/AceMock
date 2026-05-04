@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTestStore } from '../store/useTestStore';
-import { CheckCircle2, XCircle, MinusCircle, ArrowLeft, Trophy, AlertTriangle, Lightbulb } from 'lucide-react';
+import { CheckCircle2, XCircle, MinusCircle, ArrowLeft, Trophy, AlertTriangle, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -12,6 +12,8 @@ const Analysis = () => {
   const navigate = useNavigate();
   const { currentSession } = useTestStore();
   const [activeTab, setActiveTab] = useState<'right' | 'wrong' | 'unattempted'>('right');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // If no session, go to dashboard
   useEffect(() => {
@@ -33,12 +35,63 @@ const Analysis = () => {
   const score = (rightQuestions.length * rules.correct) - (wrongQuestions.length * rules.incorrect) - (unattemptedQuestions.length * rules.unattempted);
   const totalScore = questions.length * rules.correct;
 
-  const getTabContent = () => {
-    let list = rightQuestions;
-    if (activeTab === 'wrong') list = wrongQuestions;
-    if (activeTab === 'unattempted') list = unattemptedQuestions;
+  const getActiveList = () => {
+    if (activeTab === 'wrong') return wrongQuestions;
+    if (activeTab === 'unattempted') return unattemptedQuestions;
+    return rightQuestions;
+  };
 
-    if (list.length === 0) {
+  const currentList = getActiveList();
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < currentList.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    }
+  }, [currentIndex, currentList.length]);
+
+  const handlePrev = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  }, [currentIndex]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLInputElement;
+      if (activeEl?.tagName === 'TEXTAREA' || activeEl?.tagName === 'INPUT') return;
+      
+      if (e.ctrlKey) {
+        if (e.key === '-' || e.key === '_') {
+          e.preventDefault();
+          setZoomLevel(prev => Math.max(0.5, prev - 0.1));
+        } else if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setZoomLevel(prev => Math.min(1.0, prev + 0.1));
+        }
+        return;
+      }
+
+      if (e.key === 'Enter' || e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key.toLowerCase() === 'p' || e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        handlePrev();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNext, handlePrev]);
+
+  const handleTabChange = (tab: 'right' | 'wrong' | 'unattempted') => {
+    setActiveTab(tab);
+    setCurrentIndex(0);
+  };
+
+  const getTabContent = () => {
+    if (currentList.length === 0) {
       return (
         <div className="p-12 text-center text-slate-500 dark:text-slate-400">
           <p className="text-lg">No questions in this category.</p>
@@ -46,55 +99,81 @@ const Analysis = () => {
       );
     }
 
+    const q = currentList[currentIndex];
+
     return (
-      <div className="space-y-4 md:space-y-6 p-2 md:p-6">
-        {list.map((q, idx) => (
-          <div key={q.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 md:p-6 shadow-sm">
-            <div className="flex items-start gap-3 md:gap-4 mb-4">
-              <div className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center font-bold text-sm text-slate-600 dark:text-slate-300">
-                {idx + 1}
-              </div>
-              <div className="prose prose-sm md:prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mt-0.5 md:mt-1 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                  {highlightKeywords(q.questionText)}
-                </ReactMarkdown>
-              </div>
+      <div className="flex flex-col h-full bg-white dark:bg-slate-800" style={{ zoom: zoomLevel } as React.CSSProperties}>
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+          <span className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            Question {currentIndex + 1} of {currentList.length}
+          </span>
+        </div>
+
+        <div className="p-4 md:p-8 flex-1">
+          <div className="flex items-start gap-3 md:gap-4 mb-4">
+            <div className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center font-bold text-sm text-slate-600 dark:text-slate-300">
+              Q
             </div>
-
-            <div className="ml-0 md:ml-12 space-y-2 mb-6">
-              {q.options.map((opt, i) => {
-                const isCorrect = opt === q.correctAnswer;
-                const isSelected = answers[q.id] === opt;
-                
-                let optionClass = "border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300";
-                if (isCorrect) optionClass = "border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 font-medium ring-1 ring-green-500 dark:ring-green-600";
-                else if (isSelected && !isCorrect) optionClass = "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 line-through opacity-70";
-
-                return (
-                  <div key={i} className={cn("p-3 rounded-lg border", optionClass)}>
-                    {opt}
-                    {isCorrect && <CheckCircle2 className="w-4 h-4 inline-block ml-2 text-green-600 dark:text-green-500" />}
-                    {isSelected && !isCorrect && <XCircle className="w-4 h-4 inline-block ml-2 text-red-500 dark:text-red-400" />}
-                  </div>
-                );
-              })}
+            <div className="prose prose-sm md:prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mt-0.5 md:mt-1 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                {highlightKeywords(q.questionText)}
+              </ReactMarkdown>
             </div>
+          </div>
 
-            {q.explanation && (
-              <div className="ml-0 md:ml-12 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg p-3 md:p-4 flex flex-col md:flex-row gap-2 md:gap-3 text-sm text-blue-900 dark:text-blue-300">
-                <Lightbulb className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-                <div>
-                  <span className="font-semibold block mb-1">Explanation:</span>
-                  <div className="prose prose-sm md:prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {q.explanation}
-                    </ReactMarkdown>
-                  </div>
+          <div className="ml-0 md:ml-12 space-y-2 mb-6">
+            {q.options.map((opt, i) => {
+              const isCorrect = opt === q.correctAnswer;
+              const isSelected = answers[q.id] === opt;
+              
+              let optionClass = "border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300";
+              if (isCorrect) optionClass = "border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 font-medium ring-1 ring-green-500 dark:ring-green-600";
+              else if (isSelected && !isCorrect) optionClass = "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 line-through opacity-70";
+
+              return (
+                <div key={i} className={cn("p-4 rounded-xl border-2 transition-all", optionClass)}>
+                  {opt}
+                  {isCorrect && <CheckCircle2 className="w-5 h-5 inline-block ml-2 text-green-600 dark:text-green-500" />}
+                  {isSelected && !isCorrect && <XCircle className="w-5 h-5 inline-block ml-2 text-red-500 dark:text-red-400" />}
+                </div>
+              );
+            })}
+          </div>
+
+          {q.explanation && (
+            <div className="ml-0 md:ml-12 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg p-3 md:p-4 flex flex-col md:flex-row gap-2 md:gap-3 text-sm text-blue-900 dark:text-blue-300 mb-6">
+              <Lightbulb className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+              <div>
+                <span className="font-semibold block mb-1">Explanation:</span>
+                <div className="prose prose-sm md:prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {q.explanation}
+                  </ReactMarkdown>
                 </div>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between items-center ml-0 md:ml-12 mt-6">
+            <button 
+              onClick={handlePrev}
+              disabled={currentIndex === 0}
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Shortcut: 'P' or '-'"
+            >
+              <ChevronLeft className="w-5 h-5" /> Previous
+            </button>
+            <button 
+              onClick={handleNext}
+              disabled={currentIndex === currentList.length - 1}
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Shortcut: 'Enter' or '+'"
+            >
+              Next <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
-        ))}
+        </div>
       </div>
     );
   };
@@ -156,22 +235,22 @@ const Analysis = () => {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <div className="flex border-b border-slate-200 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative">
+        <div className="flex border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10 bg-white dark:bg-slate-800">
           <button 
-            onClick={() => setActiveTab('right')}
+            onClick={() => handleTabChange('right')}
             className={cn("flex-1 py-3 md:py-4 text-xs md:text-sm font-semibold transition-colors border-b-2", activeTab === 'right' ? "border-green-500 text-green-600 dark:text-green-400 bg-green-50/30 dark:bg-green-900/20" : "border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700")}
           >
             Right ({rightQuestions.length})
           </button>
           <button 
-            onClick={() => setActiveTab('wrong')}
+            onClick={() => handleTabChange('wrong')}
             className={cn("flex-1 py-3 md:py-4 text-xs md:text-sm font-semibold transition-colors border-b-2", activeTab === 'wrong' ? "border-red-500 text-red-600 dark:text-red-400 bg-red-50/30 dark:bg-red-900/20" : "border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700")}
           >
             Wrong ({wrongQuestions.length})
           </button>
           <button 
-            onClick={() => setActiveTab('unattempted')}
+            onClick={() => handleTabChange('unattempted')}
             className={cn("flex-1 py-3 md:py-4 text-xs md:text-sm font-semibold transition-colors border-b-2", activeTab === 'unattempted' ? "border-slate-800 dark:border-slate-200 text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-700" : "border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700")}
           >
             Unattempted ({unattemptedQuestions.length})

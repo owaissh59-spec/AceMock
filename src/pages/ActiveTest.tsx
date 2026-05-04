@@ -14,6 +14,7 @@ const ActiveTest = () => {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPalette, setShowPalette] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Timer effect
   useEffect(() => {
@@ -53,10 +54,29 @@ const ActiveTest = () => {
       const activeEl = document.activeElement as HTMLInputElement;
       if (activeEl?.tagName === 'TEXTAREA' || (activeEl?.tagName === 'INPUT' && activeEl.type !== 'radio' && activeEl.type !== 'checkbox')) return;
       
-      if (e.key === 'Enter') {
+      if (e.ctrlKey) {
+        if (e.key === '-' || e.key === '_') {
+          e.preventDefault();
+          setZoomLevel(prev => Math.max(0.5, prev - 0.1));
+        } else if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          setZoomLevel(prev => Math.min(1.0, prev + 0.1));
+        }
+        return;
+      }
+
+      if (['1', '2', '3', '4'].includes(e.key) && currentQuestion) {
+        const optionIndex = parseInt(e.key) - 1;
+        if (optionIndex < currentQuestion.options.length) {
+          e.preventDefault();
+          const option = currentQuestion.options[optionIndex];
+          const isSelected = currentSession.answers[currentQuestion.id] === option;
+          answerQuestion(currentQuestion.id, isSelected ? '' : option);
+        }
+      } else if (e.key === 'Enter' || e.key === '=' || e.key === '+') {
         e.preventDefault();
         handleNext();
-      } else if (e.key.toLowerCase() === 'p') {
+      } else if (e.key.toLowerCase() === 'p' || e.key === '-' || e.key === '_') {
         e.preventDefault();
         handlePrev();
       } else if (e.key.toLowerCase() === 'r' && currentQuestion) {
@@ -67,7 +87,7 @@ const ActiveTest = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSession, showPalette, handleNext, handlePrev, currentQuestion, toggleMarkForReview]);
+  }, [currentSession, showPalette, handleNext, handlePrev, currentQuestion, toggleMarkForReview, answerQuestion]);
 
   if (!currentSession || !currentQuestion) return null;
 
@@ -85,6 +105,25 @@ const ActiveTest = () => {
       submitTest();
     }
   };
+
+  const totalQ = currentSession.questions.length;
+  let colsClass = "grid-cols-5";
+  let gapClass = "gap-3";
+  let btnSizeClass = "w-10 h-10 text-sm";
+  
+  if (totalQ > 80) {
+    colsClass = "grid-cols-8";
+    gapClass = "gap-1";
+    btnSizeClass = "w-6 h-6 text-[10px]";
+  } else if (totalQ > 50) {
+    colsClass = "grid-cols-8";
+    gapClass = "gap-1.5";
+    btnSizeClass = "w-7 h-7 text-xs";
+  } else if (totalQ > 30) {
+    colsClass = "grid-cols-6";
+    gapClass = "gap-2";
+    btnSizeClass = "w-8 h-8 text-xs";
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden relative">
@@ -110,17 +149,28 @@ const ActiveTest = () => {
         
         {/* Header */}
         <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 h-16 md:h-20 px-4 md:px-8 flex items-center justify-between flex-shrink-0 relative z-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
             <button 
               onClick={() => setShowPalette(true)} 
-              className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              className="lg:hidden p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-lg md:text-xl font-bold text-slate-800 dark:text-white hidden sm:block">Mock Test</h1>
+            <h1 
+              className="font-bold text-slate-800 dark:text-white hidden sm:block line-clamp-2"
+              style={{
+                fontSize: currentSession.testName.length > 40 ? '0.85rem' : 
+                          currentSession.testName.length > 25 ? '1rem' : 
+                          '1.25rem',
+                lineHeight: '1.2'
+              }}
+              title={currentSession.testName || 'Mock Test'}
+            >
+              {currentSession.testName || 'Mock Test'}
+            </h1>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-6">
+          <div className="flex items-center gap-2 md:gap-6 flex-shrink-0">
             <button
               onClick={toggleTheme}
               className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
@@ -157,7 +207,7 @@ const ActiveTest = () => {
 
         {/* Question Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center">
-          <div className="max-w-3xl w-full">
+          <div className="max-w-3xl w-full" style={{ zoom: zoomLevel } as React.CSSProperties}>
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
               
               <div className="p-4 md:p-8 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
@@ -272,35 +322,38 @@ const ActiveTest = () => {
           </button>
         </div>
         
-        <div className="p-6 flex-1 overflow-y-auto">
-          <div className="grid grid-cols-5 gap-3">
-            {currentSession.questions.map((q, idx) => {
-              const answered = isAnswered(q.id);
-              const marked = isMarked(q.id);
-              const active = idx === currentIndex;
+        <div className="p-6 flex-1 flex flex-col justify-between overflow-y-auto">
+          <div className="flex-1 flex justify-center mb-4">
+            <div className={cn("grid place-content-start w-full", colsClass, gapClass)}>
+              {currentSession.questions.map((q, idx) => {
+                const answered = isAnswered(q.id);
+                const marked = isMarked(q.id);
+                const active = idx === currentIndex;
 
-              return (
-                <button
-                  key={q.id}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={cn(
-                    "relative w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm transition-all outline-none",
-                    active ? "ring-2 ring-primary dark:ring-blue-500 ring-offset-2 dark:ring-offset-slate-800" : "",
-                    answered ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : 
-                    "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600",
-                  )}
-                >
-                  {idx + 1}
-                  {marked && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
-                  )}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => setCurrentIndex(idx)}
+                    className={cn(
+                      "relative rounded-lg flex items-center justify-center font-bold transition-all outline-none",
+                      btnSizeClass,
+                      active ? "ring-2 ring-primary dark:ring-blue-500 ring-offset-2 dark:ring-offset-slate-800" : "",
+                      answered ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50" : 
+                      "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600",
+                    )}
+                  >
+                    {idx + 1}
+                    {marked && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-500 border border-white dark:border-slate-800 rounded-full"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Legend */}
-          <div className="mt-8 space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
+          <div className="mt-auto flex-shrink-0 space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
             <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-300">
               <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800"></div> Answered
             </div>
