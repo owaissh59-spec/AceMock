@@ -159,8 +159,8 @@ const ActiveTest = () => {
             <h1 
               className="font-bold text-slate-800 dark:text-white hidden sm:block line-clamp-2"
               style={{
-                fontSize: currentSession.testName.length > 40 ? '0.85rem' : 
-                          currentSession.testName.length > 25 ? '1rem' : 
+                fontSize: (currentSession.testName || '').length > 40 ? '0.85rem' : 
+                          (currentSession.testName || '').length > 25 ? '1rem' : 
                           '1.25rem',
                 lineHeight: '1.2'
               }}
