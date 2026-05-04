@@ -179,7 +179,7 @@ const Analysis = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-3 md:p-6 min-h-screen">
+    <div className="w-full p-3 md:p-6 min-h-screen">
       <button 
         onClick={() => {
           useTestStore.setState({ currentSession: null }); // Clear session to go back to clean state

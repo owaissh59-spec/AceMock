@@ -206,8 +206,8 @@ const ActiveTest = () => {
         </header>
 
         {/* Question Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center">
-          <div className="max-w-3xl w-full" style={{ zoom: zoomLevel } as React.CSSProperties}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="w-full" style={{ zoom: zoomLevel } as React.CSSProperties}>
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
               
               <div className="p-4 md:p-8 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
