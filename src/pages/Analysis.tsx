@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { cn } from '../utils/cn';
 import { highlightKeywords } from '../utils/highlighter';
+import { SubjectAnalysis } from '../components/SubjectAnalysis';
 
 const Analysis = () => {
   const navigate = useNavigate();
@@ -233,6 +234,9 @@ const Analysis = () => {
         <AlertTriangle className="w-5 h-5 flex-shrink-0" />
         <p>Scoring formula applied: <strong>+{rules.correct}</strong> for correct answers, <strong>-{rules.incorrect}</strong> for incorrect answers. {rules.unattempted > 0 ? `Unattempted questions carry a -${rules.unattempted} penalty.` : 'Unattempted questions carry no penalty.'}</p>
       </div>
+
+      {/* Subject-wise Analysis */}
+      <SubjectAnalysis questions={questions} answers={answers} />
 
       {/* Tabs */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative">

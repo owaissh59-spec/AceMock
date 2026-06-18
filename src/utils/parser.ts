@@ -60,13 +60,15 @@ export const parseJSON = (text: string): Question[] => {
       
       const resolvedAnswer = resolveCorrectAnswer(optionsArray, String(cAnswer));
       const shuffledOptions = shuffleArray(optionsArray);
+      const subject = item.subject || item.topic || item.category || item.section || undefined;
 
       return {
         id: String(item.id),
         questionText: String(qText),
         options: shuffledOptions,
         correctAnswer: resolvedAnswer,
-        explanation: item.explanation ? String(item.explanation) : undefined
+        explanation: item.explanation ? String(item.explanation) : undefined,
+        subject: subject ? String(subject) : undefined
       };
     });
   } catch (error: any) {
@@ -84,6 +86,7 @@ export const parseCSV = (text: string): Promise<Question[]> => {
         if (h === 'questiontext' || h === 'question' || h === 'q') return 'questionText';
         if (h === 'answer' || h === 'ans' || h === 'correctanswer' || h === 'correct') return 'correctAnswer';
         if (h === 'explanation' || h === 'exp' || h === 'reason') return 'explanation';
+        if (h === 'subject' || h === 'topic' || h === 'category' || h === 'section') return 'subject';
         if (h === 'option1' || h === 'opt1' || h === 'optiona' || h === 'opta' || h === 'a') return 'option1';
         if (h === 'option2' || h === 'opt2' || h === 'optionb' || h === 'optb' || h === 'b') return 'option2';
         if (h === 'option3' || h === 'opt3' || h === 'optionc' || h === 'optc' || h === 'c') return 'option3';
@@ -109,7 +112,8 @@ export const parseCSV = (text: string): Promise<Question[]> => {
               questionText: String(row.questionText),
               options: shuffledOptions,
               correctAnswer: resolvedAnswer,
-              explanation: row.explanation ? String(row.explanation) : undefined
+              explanation: row.explanation ? String(row.explanation) : undefined,
+              subject: row.subject ? String(row.subject) : undefined
             };
           });
           resolve(parsed);

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTestStore } from '../store/useTestStore';
-import { Play, Clock, CheckCircle2, XCircle, MinusCircle, Trash2, RotateCcw, Search, Edit2, Moon, Sun } from 'lucide-react';
+import { Play, Clock, CheckCircle2, XCircle, MinusCircle, Trash2, RotateCcw, Search, Edit2, Moon, Sun, Brain } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { PerformanceChart } from '../components/PerformanceChart';
+import { ProgressRing } from '../components/ProgressRing';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ const Dashboard = () => {
   const renameTest = useTestStore((state) => state.renameTest);
   const theme = useTestStore((state) => state.theme);
   const toggleTheme = useTestStore((state) => state.toggleTheme);
+  const practiceWeakAreas = useTestStore((state) => state.practiceWeakAreas);
+  const currentSession = useTestStore((state) => state.currentSession);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
@@ -73,6 +76,42 @@ const Dashboard = () => {
           </button>
         </div>
       </header>
+
+      {/* Resume interrupted test banner */}
+      {currentSession && !currentSession.isSubmitted && (
+        <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">Test in progress: {currentSession.testName || 'Untitled Test'}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{Math.floor(currentSession.timeRemaining / 60)} min remaining • {Object.keys(currentSession.answers).length}/{currentSession.questions.length} answered</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/test')}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap"
+          >
+            <Play className="w-4 h-4" /> Resume
+          </button>
+        </div>
+      )}
+
+      {/* Practice Weak Areas button */}
+      {history.length > 0 && history.some(r => r.incorrectAnswersCount > 0 || r.unattemptedCount > 0) && (
+        <div className="mb-6">
+          <button
+            onClick={() => {
+              practiceWeakAreas();
+              navigate('/test');
+            }}
+            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium shadow-sm transition-all flex items-center gap-2"
+          >
+            <Brain className="w-5 h-5" />
+            Practice Weak Areas
+          </button>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 ml-1">Re-quiz yourself on questions you previously got wrong or skipped.</p>
+        </div>
+      )}
 
       {history.length >= 2 && <PerformanceChart history={history} />}
 
@@ -184,10 +223,11 @@ const Dashboard = () => {
                   </div>
                 </div>
                 
-                <div className="mb-6">
-                  <div className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="text-3xl font-bold text-slate-900 dark:text-white">
                     {result.score.toFixed(2)} <span className="text-lg text-slate-400 dark:text-slate-500 font-normal">/ {result.totalScore}</span>
                   </div>
+                  <ProgressRing percentage={result.percentage} />
                 </div>
 
                 <div className="flex items-center gap-4 text-sm mb-6 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">

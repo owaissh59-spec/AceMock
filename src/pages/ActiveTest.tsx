@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { cn } from '../utils/cn';
 import { highlightKeywords } from '../utils/highlighter';
+import { KeyboardShortcuts } from '../components/KeyboardShortcuts';
 
 const ActiveTest = () => {
   const navigate = useNavigate();
@@ -23,6 +24,20 @@ const ActiveTest = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [tickTimer]);
+
+  // Prevent accidental navigation away during active test
+  useEffect(() => {
+    if (!currentSession || currentSession.isSubmitted) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'You have an active test in progress. Are you sure you want to leave?';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentSession]);
 
   // Navigate away if no session
   useEffect(() => {
@@ -171,6 +186,8 @@ const ActiveTest = () => {
           </div>
           
           <div className="flex items-center gap-2 md:gap-6 flex-shrink-0">
+            <KeyboardShortcuts />
+            
             <button
               onClick={toggleTheme}
               className="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
@@ -205,93 +222,96 @@ const ActiveTest = () => {
           </div>
         </header>
 
-        {/* Question Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="w-full" style={{ zoom: zoomLevel } as React.CSSProperties}>
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-6">
-              
-              <div className="p-4 md:p-8 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-                <span className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  Question {currentIndex + 1} of {currentSession.questions.length}
-                </span>
-                <button 
-                  onClick={() => toggleMarkForReview(currentQuestion.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border",
-                    isMarked(currentQuestion.id) 
-                      ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/50" 
-                      : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
-                  )}
-                  title="Shortcut: 'R'"
-                >
-                  <Bookmark className={cn("w-4 h-4", isMarked(currentQuestion.id) && "fill-current")} />
-                  Review
-                </button>
-              </div>
+        {/* Question Area - Full height flex layout to fit question + options on screen */}
+        <div className="flex-1 flex flex-col overflow-hidden p-3 md:p-6" style={{ zoom: zoomLevel } as React.CSSProperties}>
+          <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden min-h-0">
+            
+            {/* Question header bar */}
+            <div className="px-4 md:px-6 py-3 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 flex-shrink-0">
+              <span className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Question {currentIndex + 1} of {currentSession.questions.length}
+              </span>
+              <button 
+                onClick={() => toggleMarkForReview(currentQuestion.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border",
+                  isMarked(currentQuestion.id) 
+                    ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/50" 
+                    : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                )}
+                title="Shortcut: 'R'"
+              >
+                <Bookmark className={cn("w-4 h-4", isMarked(currentQuestion.id) && "fill-current")} />
+                Review
+              </button>
+            </div>
 
-              <div className="p-4 md:p-8">
-                <div className="prose prose-sm md:prose-base prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mb-8 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                    {highlightKeywords(currentQuestion.questionText)}
-                  </ReactMarkdown>
-                </div>
-
-                <div className="space-y-3">
-                  {currentQuestion.options.map((option, idx) => {
-                    const selected = currentSession.answers[currentQuestion.id] === option;
-                    return (
-                      <label 
-                        key={idx}
-                        className={cn(
-                          "flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all",
-                          selected 
-                            ? "border-primary dark:border-blue-500 bg-blue-50 dark:bg-primary/10 text-slate-900 dark:text-white shadow-sm" 
-                            : "border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-200 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                        )}
-                      >
-                        <input 
-                          type="radio" 
-                          name={`question-${currentQuestion.id}`}
-                          value={option}
-                          checked={selected}
-                          onClick={(e) => {
-                            if (selected) {
-                              e.preventDefault();
-                              answerQuestion(currentQuestion.id, '');
-                            } else {
-                              answerQuestion(currentQuestion.id, option);
-                            }
-                          }}
-                          onChange={() => {}}
-                          className="w-5 h-5 text-primary dark:text-blue-500 border-slate-300 dark:border-slate-600 bg-transparent focus:ring-primary dark:focus:ring-blue-500 mr-3 md:mr-4 flex-shrink-0 cursor-pointer"
-                        />
-                        <span className="text-sm md:text-base font-medium">{option}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+            {/* Question text - scrollable if long */}
+            <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 min-h-0">
+              <div className="prose prose-sm md:prose-base prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {highlightKeywords(currentQuestion.questionText)}
+                </ReactMarkdown>
               </div>
             </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-between items-center">
-              <button 
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-                className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Shortcut: 'P'"
-              >
-                <ChevronLeft className="w-5 h-5" /> Previous
-              </button>
-              <button 
-                onClick={handleNext}
-                disabled={currentIndex === currentSession.questions.length - 1}
-                className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Shortcut: 'Enter'"
-              >
-                Next <ChevronRight className="w-5 h-5" />
-              </button>
+            {/* Options - pinned at bottom, always visible */}
+            <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700/50 px-4 md:px-6 py-3 bg-white dark:bg-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {currentQuestion.options.map((option, idx) => {
+                  const selected = currentSession.answers[currentQuestion.id] === option;
+                  return (
+                    <label 
+                      key={idx}
+                      className={cn(
+                        "flex items-center px-3 py-2.5 rounded-lg border-2 cursor-pointer transition-all",
+                        selected 
+                          ? "border-primary dark:border-blue-500 bg-blue-50 dark:bg-primary/10 text-slate-900 dark:text-white shadow-sm" 
+                          : "border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-200 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      )}
+                    >
+                      <input 
+                        type="radio" 
+                        name={`question-${currentQuestion.id}`}
+                        value={option}
+                        checked={selected}
+                        onClick={(e) => {
+                          if (selected) {
+                            e.preventDefault();
+                            answerQuestion(currentQuestion.id, '');
+                          } else {
+                            answerQuestion(currentQuestion.id, option);
+                          }
+                        }}
+                        onChange={() => {}}
+                        className="w-4 h-4 text-primary dark:text-blue-500 border-slate-300 dark:border-slate-600 bg-transparent focus:ring-primary dark:focus:ring-blue-500 mr-2 md:mr-3 flex-shrink-0 cursor-pointer"
+                      />
+                      <span className="text-sm font-medium leading-tight">{option}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
+          </div>
+
+          {/* Navigation Buttons - always visible at bottom */}
+          <div className="flex justify-between items-center pt-3 flex-shrink-0">
+            <button 
+              onClick={handlePrev}
+              disabled={currentIndex === 0}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Shortcut: 'P'"
+            >
+              <ChevronLeft className="w-5 h-5" /> Previous
+            </button>
+            <button 
+              onClick={handleNext}
+              disabled={currentIndex === currentSession.questions.length - 1}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Shortcut: 'Enter'"
+            >
+              Next <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>

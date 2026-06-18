@@ -41,6 +41,7 @@ interface TestStore {
   reattemptTest: (result: TestResult) => void;
   renameTest: (id: string, newName: string) => void;
   toggleTheme: () => void;
+  practiceWeakAreas: () => void;
 }
 
 export const useTestStore = create<TestStore>()(
@@ -200,11 +201,50 @@ export const useTestStore = create<TestStore>()(
 
       toggleTheme: () => set((state) => ({
         theme: state.theme === 'light' ? 'dark' : 'light'
-      }))
+      })),
+
+      practiceWeakAreas: () => {
+        const { history } = get();
+        // Collect all wrong and unattempted questions from history
+        const weakQuestions: Question[] = [];
+        const seenIds = new Set<string>();
+        
+        history.forEach((result) => {
+          result.session.questions.forEach((q) => {
+            const ans = result.session.answers[q.id];
+            const isWrongOrSkipped = !ans || ans !== q.correctAnswer;
+            // Use questionText as dedup key since IDs may repeat across tests
+            const key = q.questionText.slice(0, 100);
+            if (isWrongOrSkipped && !seenIds.has(key)) {
+              seenIds.add(key);
+              weakQuestions.push(q);
+            }
+          });
+        });
+
+        if (weakQuestions.length === 0) return;
+
+        const shuffled = shuffleArray(weakQuestions);
+        const timeMinutes = Math.max(shuffled.length, 10);
+
+        set({
+          currentSession: {
+            testName: 'Practice: Weak Areas',
+            scoringRules: { correct: 1, incorrect: 0, unattempted: 0 },
+            questions: shuffled,
+            answers: {},
+            markedForReview: {},
+            timeRemaining: timeMinutes * 60,
+            totalTime: timeMinutes * 60,
+            isPaused: false,
+            isSubmitted: false,
+          }
+        });
+      }
     }),
     {
       name: 'mock-test-storage',
-      partialize: (state) => ({ history: state.history, theme: state.theme }), // Persist history and theme
+      partialize: (state) => ({ history: state.history, theme: state.theme, currentSession: state.currentSession }), // Persist history, theme, and current session for resume
     }
   )
 );

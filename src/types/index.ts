@@ -4,6 +4,7 @@ export interface Question {
   options: string[]; // Always 4 options
   correctAnswer: string;
   explanation?: string;
+  subject?: string; // Optional subject/topic for section-wise analysis
 }
 
 export type QuestionStatus = 'unanswered' | 'answered' | 'marked';
