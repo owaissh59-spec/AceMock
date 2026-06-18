@@ -7,8 +7,6 @@ const shortcuts = [
   { key: 'Enter / +', description: 'Next question' },
   { key: 'P / -', description: 'Previous question' },
   { key: 'R', description: 'Mark for review' },
-  { key: 'Ctrl + -', description: 'Zoom out' },
-  { key: 'Ctrl + +', description: 'Zoom in' },
 ];
 
 export const KeyboardShortcuts = () => {
