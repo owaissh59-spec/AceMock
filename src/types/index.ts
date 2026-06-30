@@ -39,3 +39,12 @@ export interface TestResult {
   unattemptedCount: number;
   session: TestSession;
 }
+
+export interface SavedExplanation {
+  id: string;
+  questionText: string;
+  explanation: string;
+  correctAnswer: string;
+  savedAt: string;
+  testName?: string;
+}

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTestStore } from '../store/useTestStore';
-import { CheckCircle2, XCircle, MinusCircle, ArrowLeft, Trophy, AlertTriangle, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle2, XCircle, MinusCircle, ArrowLeft, Trophy, AlertTriangle, Lightbulb, ChevronLeft, ChevronRight, PlusCircle, CheckCheck } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -12,6 +12,8 @@ import { SubjectAnalysis } from '../components/SubjectAnalysis';
 const Analysis = () => {
   const navigate = useNavigate();
   const { currentSession } = useTestStore();
+  const saveExplanation = useTestStore((state) => state.saveExplanation);
+  const savedExplanations = useTestStore((state) => state.savedExplanations);
   const [activeTab, setActiveTab] = useState<'right' | 'wrong' | 'unattempted'>('right');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -144,7 +146,7 @@ const Analysis = () => {
           {q.explanation && (
             <div className="ml-0 md:ml-12 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg p-3 md:p-4 flex flex-col md:flex-row gap-2 md:gap-3 text-sm text-blue-900 dark:text-blue-300 mb-6">
               <Lightbulb className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <span className="font-semibold block mb-1">Explanation:</span>
                 <div className="prose prose-sm md:prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -152,6 +154,29 @@ const Analysis = () => {
                   </ReactMarkdown>
                 </div>
               </div>
+              {(() => {
+                const isAlreadySaved = savedExplanations.some(
+                  e => e.questionText.slice(0, 100) === q.questionText.slice(0, 100)
+                );
+                return (
+                  <button
+                    onClick={() => {
+                      if (!isAlreadySaved) {
+                        saveExplanation(q.questionText, q.explanation!, q.correctAnswer, currentSession?.testName);
+                      }
+                    }}
+                    className={cn(
+                      "flex-shrink-0 self-start p-1.5 rounded-lg transition-all",
+                      isAlreadySaved
+                        ? "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 cursor-default"
+                        : "text-blue-500 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer"
+                    )}
+                    title={isAlreadySaved ? "Already saved" : "Save explanation"}
+                  >
+                    {isAlreadySaved ? <CheckCheck className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
+                  </button>
+                );
+              })()}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Question, TestSession, TestResult, ScoringRules } from '../types';
+import { Question, TestSession, TestResult, ScoringRules, SavedExplanation } from '../types';
 
 const shuffleArray = <T>(array: T[]): T[] => {
   const newArray = [...array];
@@ -24,6 +24,9 @@ interface TestStore {
   // History
   history: TestResult[];
 
+  // Saved Explanations
+  savedExplanations: SavedExplanation[];
+
   // Preferences
   theme: 'light' | 'dark';
 
@@ -42,6 +45,9 @@ interface TestStore {
   renameTest: (id: string, newName: string) => void;
   toggleTheme: () => void;
   practiceWeakAreas: () => void;
+  saveExplanation: (questionText: string, explanation: string, correctAnswer: string, testName?: string) => void;
+  removeSavedExplanation: (id: string) => void;
+  clearSavedExplanations: () => void;
 }
 
 export const useTestStore = create<TestStore>()(
@@ -53,6 +59,7 @@ export const useTestStore = create<TestStore>()(
       scoringRules: { correct: 1, incorrect: 0.25, unattempted: 0 },
       currentSession: null,
       history: [],
+      savedExplanations: [],
       theme: 'light',
 
       setSetupData: (questions, minutes, testName, scoringRules) => set({ 
@@ -240,11 +247,36 @@ export const useTestStore = create<TestStore>()(
             isSubmitted: false,
           }
         });
-      }
+      },
+
+      saveExplanation: (questionText, explanation, correctAnswer, testName) => {
+        const { savedExplanations } = get();
+        // Avoid duplicates based on question text
+        const alreadySaved = savedExplanations.some(
+          e => e.questionText.slice(0, 100) === questionText.slice(0, 100)
+        );
+        if (alreadySaved) return;
+
+        const newExplanation: SavedExplanation = {
+          id: Date.now().toString(),
+          questionText,
+          explanation,
+          correctAnswer,
+          savedAt: new Date().toISOString(),
+          testName
+        };
+        set({ savedExplanations: [...savedExplanations, newExplanation] });
+      },
+
+      removeSavedExplanation: (id) => set((state) => ({
+        savedExplanations: state.savedExplanations.filter(e => e.id !== id)
+      })),
+
+      clearSavedExplanations: () => set({ savedExplanations: [] })
     }),
     {
       name: 'mock-test-storage',
-      partialize: (state) => ({ history: state.history, theme: state.theme, currentSession: state.currentSession }), // Persist history, theme, and current session for resume
+      partialize: (state) => ({ history: state.history, theme: state.theme, currentSession: state.currentSession, savedExplanations: state.savedExplanations }), // Persist history, theme, current session, and saved explanations
     }
   )
 );
