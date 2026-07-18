@@ -1,10 +1,30 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTestStore } from '../store/useTestStore';
-import { Play, Clock, CheckCircle2, XCircle, MinusCircle, Trash2, RotateCcw, Search, Edit2, Moon, Sun, Brain, BookOpen, Copy, X, Trash } from 'lucide-react';
+import { Play, Clock, CheckCircle2, XCircle, MinusCircle, Trash2, RotateCcw, Search, Edit2, Moon, Sun, Brain, BookOpen, Copy, X, Trash, FileText, Download, ArrowLeft } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { PerformanceChart } from '../components/PerformanceChart';
 import { ProgressRing } from '../components/ProgressRing';
+import { SavedExplanation } from '../types';
+
+const EXPLANATIONS_PER_FILE = 100;
+
+const formatExplanationsAsText = (items: SavedExplanation[], startNumber: number) =>
+  items.map((e, idx) =>
+    `${startNumber + idx}. Q: ${e.questionText.slice(0, 150)}${e.questionText.length > 150 ? '...' : ''}\n   Answer: ${e.correctAnswer}\n   Explanation: ${e.explanation}`
+  ).join('\n\n');
+
+const downloadTextFile = (filename: string, content: string) => {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -24,7 +44,21 @@ const Dashboard = () => {
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
   const [showSavedExplanations, setShowSavedExplanations] = useState(false);
-  const [copiedAll, setCopiedAll] = useState(false);
+  const [viewingFileIndex, setViewingFileIndex] = useState<number | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<'all' | 'file' | null>(null);
+
+  const explanationFiles = useMemo(() => {
+    const chunks: SavedExplanation[][] = [];
+    for (let i = 0; i < savedExplanations.length; i += EXPLANATIONS_PER_FILE) {
+      chunks.push(savedExplanations.slice(i, i + EXPLANATIONS_PER_FILE));
+    }
+    return chunks;
+  }, [savedExplanations]);
+
+  const closeSavedExplanationsModal = () => {
+    setShowSavedExplanations(false);
+    setViewingFileIndex(null);
+  };
 
   const filteredHistory = history.filter(result => {
     if (!searchQuery.trim()) return true;
@@ -124,13 +158,16 @@ const Dashboard = () => {
       {savedExplanations.length > 0 && (
         <div className="mb-6">
           <button
-            onClick={() => setShowSavedExplanations(true)}
+            onClick={() => {
+              setViewingFileIndex(null);
+              setShowSavedExplanations(true);
+            }}
             className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium shadow-sm transition-all flex items-center gap-2"
           >
             <BookOpen className="w-5 h-5" />
             Saved Explanations ({savedExplanations.length})
           </button>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 ml-1">View or copy explanations you saved during analysis.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 ml-1">View or download explanations you saved during analysis, grouped into files of {EXPLANATIONS_PER_FILE}.</p>
         </div>
       )}
 
@@ -139,89 +176,183 @@ const Dashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
             className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-            onClick={() => setShowSavedExplanations(false)}
+            onClick={closeSavedExplanationsModal}
           />
           <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-3xl max-h-[80vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between flex-shrink-0">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Saved Explanations</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{savedExplanations.length} explanation{savedExplanations.length !== 1 ? 's' : ''} saved</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const allText = savedExplanations.map((e, idx) => 
-                      `${idx + 1}. Q: ${e.questionText.slice(0, 150)}${e.questionText.length > 150 ? '...' : ''}\n   Answer: ${e.correctAnswer}\n   Explanation: ${e.explanation}`
-                    ).join('\n\n');
-                    navigator.clipboard.writeText(allText);
-                    setCopiedAll(true);
-                    setTimeout(() => setCopiedAll(false), 2000);
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                    copiedAll
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                      : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-                  )}
-                >
-                  <Copy className="w-4 h-4" />
-                  {copiedAll ? 'Copied!' : 'Copy All'}
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm('Clear all saved explanations?')) {
-                      clearSavedExplanations();
-                      setShowSavedExplanations(false);
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
-                >
-                  <Trash className="w-4 h-4" />
-                  Clear All
-                </button>
-                <button
-                  onClick={() => setShowSavedExplanations(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {savedExplanations.map((item, idx) => (
-                <div key={item.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 group/item relative">
-                  <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 flex items-center justify-center text-sm font-bold">
-                      {idx + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1 line-clamp-2">
-                        <span className="font-medium text-slate-800 dark:text-slate-200">Q:</span> {item.questionText.slice(0, 200)}{item.questionText.length > 200 ? '...' : ''}
-                      </p>
-                      <p className="text-xs text-green-700 dark:text-green-400 font-medium mb-2">
-                        Answer: {item.correctAnswer}
-                      </p>
-                      <div className="text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-100 dark:border-slate-700/50">
-                        {item.explanation}
-                      </div>
-                      {item.testName && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">From: {item.testName}</p>
-                      )}
-                    </div>
+            {viewingFileIndex === null ? (
+              <>
+                {/* Modal Header — File List */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between flex-shrink-0">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Saved Explanations</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{savedExplanations.length} explanation{savedExplanations.length !== 1 ? 's' : ''} across {explanationFiles.length} file{explanationFiles.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => removeSavedExplanation(item.id)}
-                      className="flex-shrink-0 p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover/item:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-                      title="Remove"
+                      onClick={() => {
+                        const allText = formatExplanationsAsText(savedExplanations, 1);
+                        navigator.clipboard.writeText(allText);
+                        setCopyFeedback('all');
+                        setTimeout(() => setCopyFeedback(null), 2000);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                        copyFeedback === 'all'
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                          : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                      )}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Copy className="w-4 h-4" />
+                      {copyFeedback === 'all' ? 'Copied!' : 'Copy All'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Clear all saved explanations?')) {
+                          clearSavedExplanations();
+                          closeSavedExplanationsModal();
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
+                    >
+                      <Trash className="w-4 h-4" />
+                      Clear All
+                    </button>
+                    <button
+                      onClick={closeSavedExplanationsModal}
+                      className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Modal Body — one row per file */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                  {explanationFiles.map((chunk, idx) => {
+                    const start = idx * EXPLANATIONS_PER_FILE + 1;
+                    const end = idx * EXPLANATIONS_PER_FILE + chunk.length;
+                    const filename = `AceMock_Saved_Explanations_Part${idx + 1}.txt`;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                      >
+                        <button
+                          onClick={() => setViewingFileIndex(idx)}
+                          className="flex-1 min-w-0 flex items-center gap-3 text-left"
+                        >
+                          <span className="flex-shrink-0 w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 flex items-center justify-center">
+                            <FileText className="w-5 h-5" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 dark:text-white truncate">{filename}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Questions {start}-{end} • {chunk.length} item{chunk.length !== 1 ? 's' : ''}</p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => downloadTextFile(filename, formatExplanationsAsText(chunk, start))}
+                          className="flex-shrink-0 p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                          title="Download as .txt"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Modal Header — Single File View */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      onClick={() => setViewingFileIndex(null)}
+                      className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+                      title="Back to file list"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">AceMock_Saved_Explanations_Part{viewingFileIndex + 1}.txt</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{explanationFiles[viewingFileIndex].length} explanation{explanationFiles[viewingFileIndex].length !== 1 ? 's' : ''} in this file</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        const start = viewingFileIndex * EXPLANATIONS_PER_FILE + 1;
+                        navigator.clipboard.writeText(formatExplanationsAsText(explanationFiles[viewingFileIndex], start));
+                        setCopyFeedback('file');
+                        setTimeout(() => setCopyFeedback(null), 2000);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                        copyFeedback === 'file'
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                          : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                      )}
+                    >
+                      <Copy className="w-4 h-4" />
+                      {copyFeedback === 'file' ? 'Copied!' : 'Copy'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const start = viewingFileIndex * EXPLANATIONS_PER_FILE + 1;
+                        downloadTextFile(
+                          `AceMock_Saved_Explanations_Part${viewingFileIndex + 1}.txt`,
+                          formatExplanationsAsText(explanationFiles[viewingFileIndex], start)
+                        );
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download .txt
+                    </button>
+                    <button
+                      onClick={closeSavedExplanationsModal}
+                      className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Body — items within this file */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {explanationFiles[viewingFileIndex].map((item, idx) => (
+                    <div key={item.id} className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 group/item relative">
+                      <div className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 flex items-center justify-center text-sm font-bold">
+                          {viewingFileIndex * EXPLANATIONS_PER_FILE + idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-1 line-clamp-2">
+                            <span className="font-medium text-slate-800 dark:text-slate-200">Q:</span> {item.questionText.slice(0, 200)}{item.questionText.length > 200 ? '...' : ''}
+                          </p>
+                          <p className="text-xs text-green-700 dark:text-green-400 font-medium mb-2">
+                            Answer: {item.correctAnswer}
+                          </p>
+                          <div className="text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-100 dark:border-slate-700/50">
+                            {item.explanation}
+                          </div>
+                          {item.testName && (
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">From: {item.testName}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeSavedExplanation(item.id)}
+                          className="flex-shrink-0 p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover/item:opacity-100 transition-all rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title="Remove"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -231,7 +231,14 @@ export const useTestStore = create<TestStore>()(
 
         if (weakQuestions.length === 0) return;
 
-        const shuffled = shuffleArray(weakQuestions);
+        // Questions collected from different past tests can share the same `id`
+        // (ids are assigned per-test as "1", "2", "3"... during parsing, not globally).
+        // Re-key them here so `answers`/`markedForReview` lookups in this session
+        // never collide across questions pulled from different source tests.
+        const shuffled = shuffleArray(weakQuestions).map((q, idx) => ({
+          ...q,
+          id: `weak-${idx}`,
+        }));
         const timeMinutes = Math.max(shuffled.length, 10);
 
         set({
@@ -276,7 +283,13 @@ export const useTestStore = create<TestStore>()(
     }),
     {
       name: 'mock-test-storage',
+      version: 1, // Bump this and add handling in `migrate` whenever the persisted shape changes, so app updates never silently discard user data
       partialize: (state) => ({ history: state.history, theme: state.theme, currentSession: state.currentSession, savedExplanations: state.savedExplanations }), // Persist history, theme, current session, and saved explanations
+      migrate: (persistedState, _version) => {
+        // Future schema changes: transform `persistedState` from older `version`s here
+        // instead of letting zustand discard incompatible old data.
+        return persistedState as TestStore;
+      },
     }
   )
 );

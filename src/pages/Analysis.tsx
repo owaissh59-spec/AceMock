@@ -63,7 +63,23 @@ const Analysis = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLInputElement;
       if (activeEl?.tagName === 'TEXTAREA' || activeEl?.tagName === 'INPUT') return;
-      
+
+      // Shift: save the currently viewed question's explanation (same action as the + icon)
+      if (e.key === 'Shift') {
+        if (!e.repeat) {
+          const q = currentList[currentIndex];
+          if (q?.explanation) {
+            const isAlreadySaved = savedExplanations.some(
+              (exp) => exp.questionText.slice(0, 100) === q.questionText.slice(0, 100)
+            );
+            if (!isAlreadySaved) {
+              saveExplanation(q.questionText, q.explanation, q.correctAnswer, currentSession?.testName);
+            }
+          }
+        }
+        return;
+      }
+
       if (e.ctrlKey) {
         if (e.key === '-' || e.key === '_') {
           e.preventDefault();
@@ -86,7 +102,7 @@ const Analysis = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev]);
+  }, [handleNext, handlePrev, currentList, currentIndex, savedExplanations, saveExplanation, currentSession]);
 
   const handleTabChange = (tab: 'right' | 'wrong' | 'unattempted') => {
     setActiveTab(tab);
@@ -171,7 +187,7 @@ const Analysis = () => {
                         ? "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 cursor-default"
                         : "text-blue-500 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer"
                     )}
-                    title={isAlreadySaved ? "Already saved" : "Save explanation"}
+                    title={isAlreadySaved ? "Already saved" : "Save explanation (Shortcut: Shift)"}
                   >
                     {isAlreadySaved ? <CheckCheck className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
                   </button>
