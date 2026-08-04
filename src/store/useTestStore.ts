@@ -11,6 +11,78 @@ const shuffleArray = <T>(array: T[]): T[] => {
   return newArray;
 };
 
+// Interleave questions from different groups to avoid clustering by type/subject.
+// Groups questions by subject (or by detecting question-type patterns in text),
+// then deals them out round-robin style, with each group internally shuffled.
+const interleaveAndShuffle = (questions: Question[]): Question[] => {
+  if (questions.length <= 1) return questions;
+
+  // Group by subject if available; otherwise try to detect type from question text
+  const getGroupKey = (q: Question): string => {
+    if (q.subject) return q.subject.toLowerCase().trim();
+    // Heuristic: detect common question types from text
+    const text = q.questionText.toLowerCase();
+    if (text.includes('match the following') || text.includes('match the columns')) return '__match__';
+    if (text.includes('assertion') && text.includes('reason')) return '__assertion_reason__';
+    if (/statement\s*(i|ii|iii|iv|v|1|2|3|4|5)/i.test(q.questionText)) return '__statement__';
+    if (text.includes('which of the following statement')) return '__statement__';
+    return '__general__';
+  };
+
+  const groups: Record<string, Question[]> = {};
+  for (const q of questions) {
+    const key = getGroupKey(q);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(q);
+  }
+
+  const groupKeys = Object.keys(groups);
+
+  // If all questions fall into a single group, just do a normal shuffle
+  if (groupKeys.length <= 1) {
+    return shuffleArray(questions);
+  }
+
+  // Shuffle within each group
+  for (const key of groupKeys) {
+    groups[key] = shuffleArray(groups[key]);
+  }
+
+  // Shuffle the order of groups themselves
+  const shuffledKeys = shuffleArray(groupKeys);
+
+  // Round-robin interleave: pick one question from each group in turn
+  const result: Question[] = [];
+  const pointers: Record<string, number> = {};
+  for (const key of shuffledKeys) {
+    pointers[key] = 0;
+  }
+
+  let totalPlaced = 0;
+  const totalQuestions = questions.length;
+
+  while (totalPlaced < totalQuestions) {
+    for (const key of shuffledKeys) {
+      if (pointers[key] < groups[key].length) {
+        result.push(groups[key][pointers[key]]);
+        pointers[key]++;
+        totalPlaced++;
+      }
+    }
+  }
+
+  // Final shuffle pass to break the strict round-robin pattern
+  // but only swap adjacent/nearby items to preserve interleaving
+  for (let i = result.length - 1; i > 0; i--) {
+    // Swap with a random position within a window of 3 positions
+    const windowSize = Math.min(3, i);
+    const j = i - Math.floor(Math.random() * windowSize);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+
+  return result;
+};
+
 interface TestStore {
   // Test Setup Data
   testData: Question[];
@@ -75,7 +147,7 @@ export const useTestStore = create<TestStore>()(
           currentSession: {
             testName,
             scoringRules,
-            questions: shuffleArray(testData),
+            questions: interleaveAndShuffle(testData),
             answers: {},
             markedForReview: {},
             timeRemaining: timerMinutes * 60,
@@ -190,7 +262,7 @@ export const useTestStore = create<TestStore>()(
         currentSession: {
           testName: result.testName || 'Untitled Test',
           scoringRules: result.session.scoringRules || { correct: 1, incorrect: 0.25, unattempted: 0 },
-          questions: shuffleArray(result.session.questions),
+          questions: interleaveAndShuffle(result.session.questions),
           answers: {},
           markedForReview: {},
           timeRemaining: result.session.totalTime,

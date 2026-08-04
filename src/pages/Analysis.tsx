@@ -13,6 +13,7 @@ const Analysis = () => {
   const navigate = useNavigate();
   const { currentSession } = useTestStore();
   const saveExplanation = useTestStore((state) => state.saveExplanation);
+  const removeSavedExplanation = useTestStore((state) => state.removeSavedExplanation);
   const savedExplanations = useTestStore((state) => state.savedExplanations);
   const [activeTab, setActiveTab] = useState<'right' | 'wrong' | 'unattempted'>('right');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -64,15 +65,17 @@ const Analysis = () => {
       const activeEl = document.activeElement as HTMLInputElement;
       if (activeEl?.tagName === 'TEXTAREA' || activeEl?.tagName === 'INPUT') return;
 
-      // Shift: save the currently viewed question's explanation (same action as the + icon)
+      // Shift: toggle save/unsave the currently viewed question's explanation
       if (e.key === 'Shift') {
         if (!e.repeat) {
           const q = currentList[currentIndex];
           if (q?.explanation) {
-            const isAlreadySaved = savedExplanations.some(
+            const existingSaved = savedExplanations.find(
               (exp) => exp.questionText.slice(0, 100) === q.questionText.slice(0, 100)
             );
-            if (!isAlreadySaved) {
+            if (existingSaved) {
+              removeSavedExplanation(existingSaved.id);
+            } else {
               saveExplanation(q.questionText, q.explanation, q.correctAnswer, currentSession?.testName);
             }
           }
@@ -102,7 +105,7 @@ const Analysis = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, currentList, currentIndex, savedExplanations, saveExplanation, currentSession]);
+  }, [handleNext, handlePrev, currentList, currentIndex, savedExplanations, saveExplanation, removeSavedExplanation, currentSession]);
 
   const handleTabChange = (tab: 'right' | 'wrong' | 'unattempted') => {
     setActiveTab(tab);
@@ -171,23 +174,26 @@ const Analysis = () => {
                 </div>
               </div>
               {(() => {
-                const isAlreadySaved = savedExplanations.some(
+                const existingSaved = savedExplanations.find(
                   e => e.questionText.slice(0, 100) === q.questionText.slice(0, 100)
                 );
+                const isAlreadySaved = !!existingSaved;
                 return (
                   <button
                     onClick={() => {
-                      if (!isAlreadySaved) {
+                      if (isAlreadySaved) {
+                        removeSavedExplanation(existingSaved!.id);
+                      } else {
                         saveExplanation(q.questionText, q.explanation!, q.correctAnswer, currentSession?.testName);
                       }
                     }}
                     className={cn(
-                      "flex-shrink-0 self-start p-1.5 rounded-lg transition-all",
+                      "flex-shrink-0 self-start p-1.5 rounded-lg transition-all cursor-pointer",
                       isAlreadySaved
-                        ? "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 cursor-default"
-                        : "text-blue-500 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer"
+                        ? "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
+                        : "text-blue-500 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 hover:text-blue-700 dark:hover:text-blue-300"
                     )}
-                    title={isAlreadySaved ? "Already saved" : "Save explanation (Shortcut: Shift)"}
+                    title={isAlreadySaved ? "Remove saved explanation (Shortcut: Shift)" : "Save explanation (Shortcut: Shift)"}
                   >
                     {isAlreadySaved ? <CheckCheck className="w-5 h-5" /> : <PlusCircle className="w-5 h-5" />}
                   </button>
