@@ -284,7 +284,23 @@ export const useTestStore = create<TestStore>()(
 
       practiceWeakAreas: () => {
         const { history } = get();
-        // Collect all wrong and unattempted questions from history
+        
+        // First pass: collect questions that have been answered CORRECTLY in any session.
+        // If a question was once wrong but later answered correctly (e.g. in a weak-areas
+        // practice session), it should no longer be considered weak.
+        const correctlyAnswered = new Set<string>();
+        history.forEach((result) => {
+          result.session.questions.forEach((q) => {
+            const ans = result.session.answers[q.id];
+            if (ans && ans === q.correctAnswer) {
+              const key = q.questionText.slice(0, 100);
+              correctlyAnswered.add(key);
+            }
+          });
+        });
+
+        // Second pass: collect wrong/unattempted questions, excluding any that
+        // were answered correctly in a later (or any) session.
         const weakQuestions: Question[] = [];
         const seenIds = new Set<string>();
         
@@ -294,7 +310,7 @@ export const useTestStore = create<TestStore>()(
             const isWrongOrSkipped = !ans || ans !== q.correctAnswer;
             // Use questionText as dedup key since IDs may repeat across tests
             const key = q.questionText.slice(0, 100);
-            if (isWrongOrSkipped && !seenIds.has(key)) {
+            if (isWrongOrSkipped && !seenIds.has(key) && !correctlyAnswered.has(key)) {
               seenIds.add(key);
               weakQuestions.push(q);
             }

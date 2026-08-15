@@ -425,19 +425,28 @@ const ActiveTest = () => {
             </div>
           </div>
 
-          {/* Legend */}
+          {/* Legend with live counts */}
           <div className="mt-auto flex-shrink-0 space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
-            <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-              <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800"></div> Answered
+            <div className="flex items-center justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800"></div> Attempted
+              </div>
+              <span className="font-bold text-green-700 dark:text-green-400">{currentSession.questions.filter(q => !!currentSession.answers[q.id]).length}</span>
             </div>
-            <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-              <div className="w-4 h-4 rounded bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"></div> Unanswered
+            <div className="flex items-center justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 rounded bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600"></div> Unattempted
+              </div>
+              <span className="font-bold text-slate-700 dark:text-slate-300">{currentSession.questions.filter(q => !currentSession.answers[q.id]).length}</span>
             </div>
-            <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-              <div className="relative w-4 h-4 rounded bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-500 rounded-full"></span>
-              </div> 
-              Marked for Review
+            <div className="flex items-center justify-between text-sm font-medium text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-3">
+                <div className="relative w-4 h-4 rounded bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-500 rounded-full"></span>
+                </div> 
+                Marked for Review
+              </div>
+              <span className="font-bold text-purple-700 dark:text-purple-400">{currentSession.questions.filter(q => !!currentSession.markedForReview[q.id]).length}</span>
             </div>
           </div>
         </div>
