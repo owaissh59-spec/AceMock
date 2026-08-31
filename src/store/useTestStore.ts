@@ -1,87 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Question, TestSession, TestResult, ScoringRules, SavedExplanation } from '../types';
+import { arrangeQuestions, shuffleArray } from '../utils/questionPattern';
 
-const shuffleArray = <T>(array: T[]): T[] => {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
-};
-
-// Interleave questions from different groups to avoid clustering by type/subject.
-// Groups questions by subject (or by detecting question-type patterns in text),
-// then deals them out round-robin style, with each group internally shuffled.
-const interleaveAndShuffle = (questions: Question[]): Question[] => {
-  if (questions.length <= 1) return questions;
-
-  // Group by subject if available; otherwise try to detect type from question text
-  const getGroupKey = (q: Question): string => {
-    if (q.subject) return q.subject.toLowerCase().trim();
-    // Heuristic: detect common question types from text
-    const text = q.questionText.toLowerCase();
-    if (text.includes('match the following') || text.includes('match the columns')) return '__match__';
-    if (text.includes('assertion') && text.includes('reason')) return '__assertion_reason__';
-    if (/statement\s*(i|ii|iii|iv|v|1|2|3|4|5)/i.test(q.questionText)) return '__statement__';
-    if (text.includes('which of the following statement')) return '__statement__';
-    return '__general__';
-  };
-
-  const groups: Record<string, Question[]> = {};
-  for (const q of questions) {
-    const key = getGroupKey(q);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(q);
-  }
-
-  const groupKeys = Object.keys(groups);
-
-  // If all questions fall into a single group, just do a normal shuffle
-  if (groupKeys.length <= 1) {
-    return shuffleArray(questions);
-  }
-
-  // Shuffle within each group
-  for (const key of groupKeys) {
-    groups[key] = shuffleArray(groups[key]);
-  }
-
-  // Shuffle the order of groups themselves
-  const shuffledKeys = shuffleArray(groupKeys);
-
-  // Round-robin interleave: pick one question from each group in turn
-  const result: Question[] = [];
-  const pointers: Record<string, number> = {};
-  for (const key of shuffledKeys) {
-    pointers[key] = 0;
-  }
-
-  let totalPlaced = 0;
-  const totalQuestions = questions.length;
-
-  while (totalPlaced < totalQuestions) {
-    for (const key of shuffledKeys) {
-      if (pointers[key] < groups[key].length) {
-        result.push(groups[key][pointers[key]]);
-        pointers[key]++;
-        totalPlaced++;
-      }
-    }
-  }
-
-  // Final shuffle pass to break the strict round-robin pattern
-  // but only swap adjacent/nearby items to preserve interleaving
-  for (let i = result.length - 1; i > 0; i--) {
-    // Swap with a random position within a window of 3 positions
-    const windowSize = Math.min(3, i);
-    const j = i - Math.floor(Math.random() * windowSize);
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-
-  return result;
-};
+/** Name prefix used to identify weak-area practice sessions in history. */
+const WEAK_AREA_PREFIX = 'Weak Areas Practice';
 
 interface TestStore {
   // Test Setup Data
@@ -116,7 +39,8 @@ interface TestStore {
   reattemptTest: (result: TestResult) => void;
   renameTest: (id: string, newName: string) => void;
   toggleTheme: () => void;
-  practiceWeakAreas: () => void;
+  getWeakQuestionPool: () => Question[];
+  practiceWeakAreas: (count?: number) => void;
   saveExplanation: (questionText: string, explanation: string, correctAnswer: string, testName?: string) => void;
   removeSavedExplanation: (id: string) => void;
   clearSavedExplanations: () => void;
@@ -147,7 +71,7 @@ export const useTestStore = create<TestStore>()(
           currentSession: {
             testName,
             scoringRules,
-            questions: interleaveAndShuffle(testData),
+            questions: arrangeQuestions(testData),
             answers: {},
             markedForReview: {},
             timeRemaining: timerMinutes * 60,
@@ -262,7 +186,7 @@ export const useTestStore = create<TestStore>()(
         currentSession: {
           testName: result.testName || 'Untitled Test',
           scoringRules: result.session.scoringRules || { correct: 1, incorrect: 0.25, unattempted: 0 },
-          questions: interleaveAndShuffle(result.session.questions),
+          questions: arrangeQuestions(result.session.questions),
           answers: {},
           markedForReview: {},
           timeRemaining: result.session.totalTime,
@@ -282,9 +206,11 @@ export const useTestStore = create<TestStore>()(
         theme: state.theme === 'light' ? 'dark' : 'light'
       })),
 
-      practiceWeakAreas: () => {
+      // Builds the pool of "weak" questions: everything answered wrong or left
+      // unattempted that has never since been answered correctly.
+      getWeakQuestionPool: () => {
         const { history } = get();
-        
+
         // First pass: collect questions that have been answered CORRECTLY in any session.
         // If a question was once wrong but later answered correctly (e.g. in a weak-areas
         // practice session), it should no longer be considered weak.
@@ -293,8 +219,7 @@ export const useTestStore = create<TestStore>()(
           result.session.questions.forEach((q) => {
             const ans = result.session.answers[q.id];
             if (ans && ans === q.correctAnswer) {
-              const key = q.questionText.slice(0, 100);
-              correctlyAnswered.add(key);
+              correctlyAnswered.add(q.questionText.slice(0, 100));
             }
           });
         });
@@ -302,38 +227,57 @@ export const useTestStore = create<TestStore>()(
         // Second pass: collect wrong/unattempted questions, excluding any that
         // were answered correctly in a later (or any) session.
         const weakQuestions: Question[] = [];
-        const seenIds = new Set<string>();
-        
+        const seenKeys = new Set<string>();
+
         history.forEach((result) => {
           result.session.questions.forEach((q) => {
             const ans = result.session.answers[q.id];
             const isWrongOrSkipped = !ans || ans !== q.correctAnswer;
             // Use questionText as dedup key since IDs may repeat across tests
             const key = q.questionText.slice(0, 100);
-            if (isWrongOrSkipped && !seenIds.has(key) && !correctlyAnswered.has(key)) {
-              seenIds.add(key);
+            if (isWrongOrSkipped && !seenKeys.has(key) && !correctlyAnswered.has(key)) {
+              seenKeys.add(key);
               weakQuestions.push(q);
             }
           });
         });
 
+        return weakQuestions;
+      },
+
+      practiceWeakAreas: (count) => {
+        const { history, getWeakQuestionPool } = get();
+        const weakQuestions = getWeakQuestionPool();
+
         if (weakQuestions.length === 0) return;
 
+        // How many questions the user asked for (default: the whole pool).
+        const requested = count && count > 0 ? Math.min(Math.floor(count), weakQuestions.length) : weakQuestions.length;
+
+        // Randomly pick `requested` questions out of the pool.
         // Questions collected from different past tests can share the same `id`
         // (ids are assigned per-test as "1", "2", "3"... during parsing, not globally).
         // Re-key them here so `answers`/`markedForReview` lookups in this session
         // never collide across questions pulled from different source tests.
-        const shuffled = shuffleArray(weakQuestions).map((q, idx) => ({
-          ...q,
-          id: `weak-${idx}`,
-        }));
-        const timeMinutes = Math.max(shuffled.length, 10);
+        const picked = shuffleArray(weakQuestions)
+          .slice(0, requested)
+          .map((q, idx) => ({ ...q, id: `weak-${idx}` }));
+
+        // Spread question patterns so the practice paper reads like a real test.
+        const arranged = arrangeQuestions(picked);
+
+        // 1 minute per question — this practice run is a standalone test with its own record.
+        const timeMinutes = arranged.length;
+
+        // Number the sessions so each practice run is distinguishable in history.
+        const attemptNumber =
+          history.filter((r) => (r.testName || '').startsWith(WEAK_AREA_PREFIX)).length + 1;
 
         set({
           currentSession: {
-            testName: 'Practice: Weak Areas',
+            testName: `${WEAK_AREA_PREFIX} #${attemptNumber} (${arranged.length} Q)`,
             scoringRules: { correct: 1, incorrect: 0, unattempted: 0 },
-            questions: shuffled,
+            questions: arranged,
             answers: {},
             markedForReview: {},
             timeRemaining: timeMinutes * 60,

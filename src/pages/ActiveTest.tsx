@@ -303,7 +303,7 @@ const ActiveTest = () => {
               </div>
 
               <div className="p-4 md:p-6">
-                <div className="prose prose-sm md:prose-base prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mb-6 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+                <div className="prose prose-sm md:prose-base prose-slate dark:prose-invert prose-p:leading-relaxed prose-p:my-0 prose-ul:my-0 prose-ol:my-0 prose-li:my-0 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-th:bg-slate-100 dark:prose-th:bg-slate-800 prose-td:border-slate-200 dark:prose-td:border-slate-700 max-w-none mb-6 overflow-x-auto whitespace-pre-wrap text-slate-800 dark:text-slate-200">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                     {highlightKeywords(currentQuestion.questionText)}
                   </ReactMarkdown>

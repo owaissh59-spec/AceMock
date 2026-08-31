@@ -15,6 +15,7 @@ const Dashboard = () => {
   const theme = useTestStore((state) => state.theme);
   const toggleTheme = useTestStore((state) => state.toggleTheme);
   const practiceWeakAreas = useTestStore((state) => state.practiceWeakAreas);
+  const getWeakQuestionPool = useTestStore((state) => state.getWeakQuestionPool);
   const currentSession = useTestStore((state) => state.currentSession);
   const savedExplanations = useTestStore((state) => state.savedExplanations);
   const removeSavedExplanation = useTestStore((state) => state.removeSavedExplanation);
@@ -25,6 +26,33 @@ const Dashboard = () => {
   const [editNameValue, setEditNameValue] = useState('');
   const [showSavedExplanations, setShowSavedExplanations] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<'all' | null>(null);
+
+  // --- Practice Weak Areas session builder ---
+  const [showWeakAreaModal, setShowWeakAreaModal] = useState(false);
+  const [weakPoolSize, setWeakPoolSize] = useState(0);
+  const [weakCountInput, setWeakCountInput] = useState('30');
+
+  const parsedWeakCount = parseInt(weakCountInput, 10);
+  const weakCountValid =
+    Number.isFinite(parsedWeakCount) && parsedWeakCount >= 1 && parsedWeakCount <= weakPoolSize;
+
+  const openWeakAreaModal = () => {
+    const poolSize = getWeakQuestionPool().length;
+    setWeakPoolSize(poolSize);
+    // Default to 30 questions, or the whole pool if it's smaller than that.
+    setWeakCountInput(String(Math.min(30, poolSize)));
+    setShowWeakAreaModal(true);
+  };
+
+  const startWeakAreaPractice = () => {
+    if (!weakCountValid) return;
+    setShowWeakAreaModal(false);
+    practiceWeakAreas(parsedWeakCount);
+    navigate('/test');
+  };
+
+  // Preset buttons, filtered to what the pool can actually supply.
+  const weakPresets = [10, 20, 30, 50, 100].filter((n) => n <= weakPoolSize);
 
   const closeSavedExplanationsModal = () => {
     setShowSavedExplanations(false);
@@ -109,16 +137,130 @@ const Dashboard = () => {
       {history.length > 0 && history.some(r => r.incorrectAnswersCount > 0 || r.unattemptedCount > 0) && (
         <div className="mb-6">
           <button
-            onClick={() => {
-              practiceWeakAreas();
-              navigate('/test');
-            }}
+            onClick={openWeakAreaModal}
             className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium shadow-sm transition-all flex items-center gap-2"
           >
             <Brain className="w-5 h-5" />
             Practice Weak Areas
           </button>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 ml-1">Re-quiz yourself on questions you previously got wrong or skipped.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 ml-1">Build a custom-length test from questions you previously got wrong or skipped.</p>
+        </div>
+      )}
+
+      {/* Practice Weak Areas — session size chooser */}
+      {showWeakAreaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            onClick={() => setShowWeakAreaModal(false)}
+          />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700/50 flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  Practice Weak Areas
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  {weakPoolSize} question{weakPoolSize !== 1 ? 's' : ''} in your weak-area pool.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowWeakAreaModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {weakPoolSize === 0 ? (
+              <div className="p-6 text-center text-slate-500 dark:text-slate-400">
+                <p>No weak questions left — you've answered everything correctly at least once.</p>
+              </div>
+            ) : (
+              <>
+                <div className="p-6 space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      How many questions do you want to attempt?
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {weakPresets.map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setWeakCountInput(String(n))}
+                          className={cn(
+                            "px-4 py-2 rounded-lg text-sm font-semibold border transition-all",
+                            parsedWeakCount === n
+                              ? "bg-purple-600 border-purple-600 text-white"
+                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 dark:hover:border-purple-500"
+                          )}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setWeakCountInput(String(weakPoolSize))}
+                        className={cn(
+                          "px-4 py-2 rounded-lg text-sm font-semibold border transition-all",
+                          parsedWeakCount === weakPoolSize
+                            ? "bg-purple-600 border-purple-600 text-white"
+                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 dark:hover:border-purple-500"
+                        )}
+                      >
+                        All ({weakPoolSize})
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      max={weakPoolSize}
+                      value={weakCountInput}
+                      onChange={(e) => setWeakCountInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') startWeakAreaPractice();
+                      }}
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 font-semibold focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all"
+                      placeholder={`1 – ${weakPoolSize}`}
+                    />
+                    {!weakCountValid && weakCountInput.trim() !== '' && (
+                      <p className="text-xs text-red-500 dark:text-red-400 mt-1.5">
+                        Enter a number between 1 and {weakPoolSize}.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40 rounded-xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-purple-800 dark:text-purple-300">
+                      <Clock className="w-4 h-4" />
+                      Time allotted: {weakCountValid ? parsedWeakCount : 0} minute{parsedWeakCount === 1 ? '' : 's'}
+                    </div>
+                    <p className="text-xs text-purple-700/80 dark:text-purple-300/70">
+                      1 minute per question. Questions are picked at random from your weak-area pool
+                      and saved as a separate test with its own record.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-6 pt-0 flex gap-3">
+                  <button
+                    onClick={() => setShowWeakAreaModal(false)}
+                    className="flex-1 py-3 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg text-slate-700 dark:text-slate-300 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={startWeakAreaPractice}
+                    disabled={!weakCountValid}
+                    className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Play className="w-4 h-4" />
+                    Start Practice
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
