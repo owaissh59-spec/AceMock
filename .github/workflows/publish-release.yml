@@ -1,0 +1,118 @@
+name: Publish Release
+
+# Collects the newest build artifacts produced by the three build workflows
+# (Android APK, iOS IPA, Windows MSI) and attaches them to a GitHub Release,
+# marking it as the "Latest" release shown on the repository front page.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (created if it does not exist)'
+        required: true
+        default: 'v0.1.0'
+  push:
+    branches: [ "chore/publish-latest-builds" ]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.inputs.tag || 'v0.1.0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect newest build artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          latest_artifact_id() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+              --jq "[.artifacts[] | select(.name == \"$1\") | select(.expired == false)] \
+                    | sort_by(.created_at) | reverse | .[0].id // empty"
+          }
+
+          grab() {
+            artifact_name="$1"
+            inner_glob="$2"
+            target="$3"
+
+            id="$(latest_artifact_id "$artifact_name")"
+            if [ -z "$id" ]; then
+              echo "::error::No unexpired artifact named '$artifact_name' was found"
+              exit 1
+            fi
+
+            echo "Downloading artifact '$artifact_name' (id $id)"
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "artifact.zip"
+            rm -rf unpacked && mkdir unpacked
+            unzip -q artifact.zip -d unpacked
+            rm artifact.zip
+
+            found="$(find unpacked -type f -name "$inner_glob" | head -1)"
+            if [ -z "$found" ]; then
+              echo "::error::Artifact '$artifact_name' contained no file matching '$inner_glob'"
+              find unpacked -type f
+              exit 1
+            fi
+            mv "$found" "dist/$target"
+            echo "  -> dist/$target ($(stat -c%s "dist/$target") bytes)"
+          }
+
+          grab "AceMock-Android-APK"       "*.apk" "AceMock-$TAG-android.apk"
+          grab "AceMock-iOS-IPA"           "*.ipa" "AceMock-$TAG-ios.ipa"
+          grab "AceMock-Windows-Installer" "*.msi" "AceMock-$TAG-windows-x64.msi"
+
+          rm -rf unpacked
+          ls -la dist
+
+      - name: Write release notes
+        run: |
+          set -euo pipefail
+          {
+            echo "Installers built from \`${GITHUB_SHA:0:7}\` on \`$GITHUB_REF_NAME\`."
+            echo
+            echo "### Downloads"
+            echo
+            echo "| Platform | File |"
+            echo "|---|---|"
+            echo "| Android | \`AceMock-$TAG-android.apk\` |"
+            echo "| iOS | \`AceMock-$TAG-ios.ipa\` |"
+            echo "| Windows (x64) | \`AceMock-$TAG-windows-x64.msi\` |"
+            echo
+            echo "### Install notes"
+            echo
+            echo "- **Android** - debug-signed APK. Allow \"install unknown apps\" for your browser or file manager, then open the \`.apk\`."
+            echo "- **iOS** - unsigned \`.ipa\`; sideload it (AltStore / Sideloadly) or re-sign with your own certificate."
+            echo "- **Windows** - run the \`.msi\`. SmartScreen may warn because the installer is unsigned; choose *More info -> Run anyway*."
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Publish assets to release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Updating existing release $TAG"
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" \
+              --title "AceMock $TAG - Android, iOS & Windows" \
+              --notes-file release-notes.md \
+              --draft=false \
+              --prerelease=false \
+              --latest
+          else
+            echo "Creating release $TAG"
+            gh release create "$TAG" dist/* \
+              --title "AceMock $TAG - Android, iOS & Windows" \
+              --notes-file release-notes.md \
+              --latest
+          fi
+          echo "### Published assets" >> "$GITHUB_STEP_SUMMARY"
+          gh release view "$TAG" --json assets \
+            --jq '.assets[] | "- \(.name) (\(.size) bytes) \(.url)"' >> "$GITHUB_STEP_SUMMARY"
