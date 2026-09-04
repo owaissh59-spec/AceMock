@@ -290,9 +290,11 @@ export const useTestStore = create<TestStore>()(
 
       saveExplanation: (questionText, explanation, correctAnswer, testName) => {
         const { savedExplanations } = get();
-        // Avoid duplicates based on question text
+        // Avoid duplicates based on the FULL question text plus correct answer.
+        // (Matching on only the first 100 chars caused different questions that
+        // share an intro/stem to be treated as the same saved explanation.)
         const alreadySaved = savedExplanations.some(
-          e => e.questionText.slice(0, 100) === questionText.slice(0, 100)
+          e => e.questionText.trim() === questionText.trim() && e.correctAnswer === correctAnswer
         );
         if (alreadySaved) return;
 

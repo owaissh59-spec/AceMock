@@ -16,6 +16,7 @@ const ActiveTest = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPalette, setShowPalette] = useState(false);
   const [scaleFactor, setScaleFactor] = useState(1);
+  const [contentHeight, setContentHeight] = useState(0);
   const questionAreaRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -64,62 +65,49 @@ const ActiveTest = () => {
 
   const currentQuestion = currentSession?.questions[currentIndex];
 
-  // Auto-fit: on desktop, scale content to fit viewport. On mobile, allow scroll.
+  // Auto-fit: scale content down to fit the viewport when possible, while
+  // ALWAYS keeping the area scrollable so nothing (incl. nav buttons) is ever
+  // unreachable. On mobile we don't scale (scroll only).
   useEffect(() => {
     if (!currentQuestion) return;
 
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      setScaleFactor(1);
-      return;
-    }
-
-    // Wait for content to render
-    const timer = setTimeout(() => {
+    const recalc = () => {
       const area = questionAreaRef.current;
       const content = contentRef.current;
       if (!area || !content) return;
 
-      const availableHeight = area.clientHeight;
-      const naturalHeight = content.scrollHeight;
+      // Measure the natural (unscaled) height of the content.
+      const currentScale = content.style.transform
+        ? parseFloat(content.style.transform.replace(/[^0-9.]/g, '')) || 1
+        : 1;
+      const naturalHeight = content.getBoundingClientRect().height / currentScale;
+      setContentHeight(naturalHeight);
 
-      if (naturalHeight > availableHeight && naturalHeight > 0) {
-        const ratio = availableHeight / naturalHeight;
-        setScaleFactor(Math.max(0.6, Math.min(1, ratio)));
-      } else {
-        setScaleFactor(1);
-      }
-    }, 50);
-
-    return () => clearTimeout(timer);
-  }, [currentIndex, currentQuestion]);
-
-  // Recalculate on resize
-  useEffect(() => {
-    const handleResize = () => {
       const isMobile = window.innerWidth < 768;
       if (isMobile) {
         setScaleFactor(1);
         return;
       }
-      const area = questionAreaRef.current;
-      const content = contentRef.current;
-      if (!area || !content) return;
 
       const availableHeight = area.clientHeight;
-      const naturalHeight = content.scrollHeight / scaleFactor; // undo current scale to get natural height
-
       if (naturalHeight > availableHeight && naturalHeight > 0) {
         const ratio = availableHeight / naturalHeight;
+        // Don't shrink below 0.6; if content is still taller than the area
+        // after scaling, the container scrolls to reveal the rest.
         setScaleFactor(Math.max(0.6, Math.min(1, ratio)));
       } else {
         setScaleFactor(1);
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [scaleFactor]);
+    // Wait for content to render before measuring.
+    const timer = setTimeout(recalc, 50);
+    window.addEventListener('resize', recalc);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', recalc);
+    };
+  }, [currentIndex, currentQuestion]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -274,12 +262,18 @@ const ActiveTest = () => {
           </div>
         </header>
 
-        {/* Question Area */}
-        <div className="flex-1 overflow-y-auto md:overflow-hidden p-4 md:p-6" ref={questionAreaRef}>
+        {/* Question Area - always scrollable, with auto-fit scaling as an enhancement */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6" ref={questionAreaRef}>
           <div
             ref={contentRef}
             className="w-full origin-top"
-            style={{ transform: `scale(${scaleFactor})`, transformOrigin: 'top center' }}
+            style={{
+              transform: `scale(${scaleFactor})`,
+              transformOrigin: 'top center',
+              // Reserve the correct amount of vertical space for the scaled content
+              // so the container can scroll to reveal everything (incl. nav buttons).
+              marginBottom: scaleFactor < 1 ? `calc((${scaleFactor} - 1) * ${contentHeight}px)` : undefined,
+            }}
           >
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-4">
               

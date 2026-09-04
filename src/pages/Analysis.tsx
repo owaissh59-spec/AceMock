@@ -71,7 +71,7 @@ const Analysis = () => {
           const q = currentList[currentIndex];
           if (q?.explanation) {
             const existingSaved = savedExplanations.find(
-              (exp) => exp.questionText.slice(0, 100) === q.questionText.slice(0, 100)
+              (exp) => exp.questionText.trim() === q.questionText.trim() && exp.correctAnswer === q.correctAnswer
             );
             if (existingSaved) {
               removeSavedExplanation(existingSaved.id);
@@ -175,7 +175,7 @@ const Analysis = () => {
               </div>
               {(() => {
                 const existingSaved = savedExplanations.find(
-                  e => e.questionText.slice(0, 100) === q.questionText.slice(0, 100)
+                  e => e.questionText.trim() === q.questionText.trim() && e.correctAnswer === q.correctAnswer
                 );
                 const isAlreadySaved = !!existingSaved;
                 return (
